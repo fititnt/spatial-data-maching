@@ -1,0 +1,3462 @@
+<!doctype html>
+<html lang="en">
+
+<!--
+  @author Emerson Rocha <rocha(at)ieee.org>
+  @license AGPL
+  @version 0.5.3.2
+-->
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spatial Data Maching with OSM Schema</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"
+    integrity="sha384-5kMSQJ6S4Qj5i09mtMNrWpSi8iXw230pKU76xTmrpezGnNJQzj0NzXjQLLg+jE7k" crossorigin="anonymous">
+  <style>
+    .leaflet-container {
+      height: 800px;
+      /* width: 600px; */
+      width: 100%;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    /** https://unpkg.com/browse/leaflet.markercluster@1.4.1/dist/ **/
+    .leaflet-cluster-anim .leaflet-marker-icon,
+    .leaflet-cluster-anim .leaflet-marker-shadow {
+      -webkit-transition: -webkit-transform 0.3s ease-out, opacity 0.3s ease-in;
+      -moz-transition: -moz-transform 0.3s ease-out, opacity 0.3s ease-in;
+      -o-transition: -o-transform 0.3s ease-out, opacity 0.3s ease-in;
+      transition: transform 0.3s ease-out, opacity 0.3s ease-in;
+    }
+
+    .leaflet-cluster-spider-leg {
+      /* stroke-dashoffset (duration and function) should match with leaflet-marker-icon transform in order to track it exactly */
+      -webkit-transition: -webkit-stroke-dashoffset 0.3s ease-out, -webkit-stroke-opacity 0.3s ease-in;
+      -moz-transition: -moz-stroke-dashoffset 0.3s ease-out, -moz-stroke-opacity 0.3s ease-in;
+      -o-transition: -o-stroke-dashoffset 0.3s ease-out, -o-stroke-opacity 0.3s ease-in;
+      transition: stroke-dashoffset 0.3s ease-out, stroke-opacity 0.3s ease-in;
+    }
+
+    .leaflet-marker-pane img.pin-focus {
+      /* filter: hue-rotate(120deg); */
+      box-shadow: 0px 0px 3px 5px #eeea02;
+    }
+
+    .resize {
+      resize: both;
+      overflow: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark v_meta-element">
+    <div class="container">
+      <a class="navbar-brand" href="#">SDM <sup>v0.5.3.2 beta</sup></a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
+        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+    </div>
+  </nav>
+
+  <div class="container my-1">
+    <h1 class="v_meta-element">Spatial Data Maching <sup>with OSM Schema</sup></h1>
+    <div class="col-lg-12 px-0">
+
+      <ul class="nav nav-tabs v_filter_up-element" id="myTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home-tab-pane"
+            type="button" role="tab" aria-controls="home-tab-pane" aria-selected="true"><abbr
+              title="Carrege arquivos externos para memória RAM do navegador. Permite filtrar campos e quais linhas de dados">Data
+              import</abbr>
+            <span class="badge text-bg-secondary">
+              <span id="data_ex_count_i">0</span>
+              / <span id="data_ex_count_t">0</span>
+            </span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile-tab-pane"
+            type="button" role="tab" aria-controls="profile-tab-pane" aria-selected="false"><abbr
+              title="Para fatos (elementos, 'PoIs', ...) já carregados em memória, filtre o que deseja">Real time
+              filter</abbr>
+            <span class="badge text-bg-secondary"><span id="data_active_count">0</span></span></button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="export-tab" data-bs-toggle="tab" data-bs-target="#export-tab-pane" type="button"
+            role="tab" aria-controls="export-tab-pane" aria-selected="false">Export</button>
+        </li>
+      </ul>
+
+      <div class="tab-content v_filter_up-element" id="myTabContent">
+        <div class="tab-pane fade show active" id="home-tab-pane" role="tabpanel" aria-labelledby="home-tab"
+          tabindex="0">
+          <form>
+            <div class="row">
+              <div class="col">
+                <label for="external-data-file" class="form-label visually-hidden">Carregar arquivo externo</label>
+                <input class="form-control form-control-lg" id="external-data-file" type="file"
+                  onchange="readFile(this)" accept=".json, .geojson, .geojsonl, .csv, .tsv" multiple>
+
+                <!-- <label for="fileNum">Arquivos:</label> -->
+                Files:
+                <output id="fileNum">0</output>;
+                <!-- <label for="fileSize">Tamanho original:</label> -->
+                Original Size:
+                <output id="fileSize">0</output>
+              </div>
+            </div>
+            <!-- <hr class=""> -->
+            <div class="row">
+              <h3 class="h4">Attributes to import for every item</h3>
+              <div class="col">
+                <label for="data_ex_fields_exporter">Keys/columns</label>
+                <button type="button" class="" data-bs-toggle="tooltip" data-bs-placement="top"
+                  data-bs-title="Regex-enabled case-sensitive list of field keys to, if exist in source data, be imported. (this means properties not listed here will NOT be loaded into the memory). Tip: you can use '.+' to allow anything">
+                  🛈
+                </button>
+                <textarea class="form-control" placeholder="" id="data_ex_fields_exporter" style="height: 200px">// Most frequent at the top
+addr:.*
+nohousenumber
+name
+source
+// Incompleted Map features https://wiki.osm.org/wiki/Map_features
+aerialway
+amenity
+barrier
+boundary
+building
+building:.+
+craft
+emergency
+geological
+healthcare
+highway
+cycleway
+busway
+parking
+parking:.+
+historic
+leisure
+landuse
+leisure
+man_made
+military
+natural
+office
+place
+power
+line
+public_transport
+railway
+bridge
+tunnel
+route
+shop
+sport
+telecom
+tourism
+water
+// (...)
+// Subtags of https://wiki.osm.org/wiki/Map_features
+police
+government
+service
+// Contact-like data, (good for detect matches)
+contact:.+
+phone
+email
+// Reference-like and external identifiers (good for detect matches)
+ref
+ref:.+
+wikidata
+wikipedia
+// Other metadata
+source
+source:.+
+operator
+population
+embankment
+fixme
+note
+website
+url
+opening_hours
+// Typical OSM Names wiki.osm.org/wiki/Names
+name
+name:.+
+alt_name
+alt_name:.+
+int_name
+int_name:.+
+log_name
+loc_name:.+
+nat_name
+nat_name.+
+official_name
+official_name:.+
+old_name
+old_name:.+
+ref_name
+ref_name:.+
+reg_name
+reg_name:.+
+short_name
+short_name:.+
+@id</textarea>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" value="1" id="import_fields_anyifosm_nwr" checked>
+                  <label class="form-check-label" for="import_fields_anyifosm_nwr">
+                    (OSM export) Allow any field name if @id= starts with node/, way/ relation/ or note/
+                  </label>
+                </div>
+
+
+              </div>
+              <div class="col">
+                <!-- future -->
+                <label for="importer_aliases">Aliases (not implemented yet)</label>
+                <button type="button" class="" data-bs-toggle="tooltip" data-bs-placement="top"
+                  data-bs-title="Renamer for very common column names. Syntax: original_field|osm-schema-field|optional_function()">
+                  🛈
+                </button>
+                <textarea class="form-control" placeholder="" id="importer_aliases" style="height: 200px" disabled>//Wikidata related
+itemLabel|name
+item|wikidata|helper_wikidata_q()
+loc|coordinate_location|helper_point()
+geo|coordinate_location|helper_point()
+                </textarea>
+              </div>
+            </div>
+            <div class="row">
+              <h3 class="h4">Selection of items to import</h3>
+              <div class="col">
+                <label for="data_ex_filter">Filter for hardcoded key=value</label>
+                <button type="button" class="" data-bs-toggle="tooltip" data-bs-placement="top"
+                  data-bs-title="Fixed list which every imported item must match">
+                  🛈
+                </button>
+                <textarea class="form-control" placeholder="key=value
+addr:postcode=1234.?" id="data_ex_filter" style="height: 400px"></textarea>
+              </div>
+              <div class="col">
+                <h4 class="h5">Use itens from a file to select items from import dataset</h4>
+                <div class="mb-3">
+                  <label for="import_reffile" class="form-label">Reference files</label>
+                  <button type="button" class="" data-bs-toggle="tooltip" data-bs-placement="top"
+                    data-bs-title="Select one or more files where the items of imported files must match to at least one item of these reference files">
+                    🛈
+                  </button>
+                  <input class="form-control" type="file" id="import_reffile" onchange="readFileReference(this)"
+                    accept=".json, .geojson" multiple>
+                </div>
+                <div class="input-group mb-3">
+                  <span class="input-group-text" id="import_reffile_dist-label">Maximum distance (meters)</span>
+                  <input type="text" class="form-control" placeholder="500" aria-label="Distance (m)"
+                    aria-describedby="import_reffile_dist-label" id="import_reffile_dist" value="1000">
+                </div>
+                <div class="input-group mb-3">
+                  <span class="input-group-text" id="import_reffile_dist2-label">Striter max. distance (meters)</span>
+                  <input type="text" class="form-control" placeholder="500" aria-label="Distance (m)"
+                    aria-describedby="import_reffile_dist2-label" id="import_reffile_dist2" value="100">
+                </div>
+                <div class="input-group">
+                  <span class="input-group-text">Attributes to match</span>
+                  <textarea class="form-control" aria-label="Attributes to match"
+                    id="import_reffile_rules">addr:housenumber</textarea>
+                  <!--
+addr:housenumber
+email
+phone
+-->
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" value="1" id="import_reffile_rules_missing" checked>
+                  <label class="form-check-label" for="import_reffile_rules_missing">
+                    Ignore if reference don't have
+                  </label>
+                </div>
+
+                <div class="mb-3">
+                  <label for="import_reffile_output" class="form-label">Result log of maching by reference</label>
+                  <textarea class="form-control" id="import_reffile_output" rows="4" disabled></textarea>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="tab-pane fade" id="profile-tab-pane" role="tabpanel" aria-labelledby="profile-tab" tabindex="0">
+          <!-- <div class="alert alert-info alert-dismissible fade show" role="alert">
+          Filtros ativos.
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div> -->
+
+          <div class="row">
+            <!-- <label for="filter_active_simple" class="col-sm-2 col-form-label col-form-label-lg">Busca simples</label>
+          <div class="col-sm-10">
+            <input type="text" class="form-control form-control-lg" id="filter_active_simple"
+              placeholder="Busca simples 1">
+            <input type="text" class="form-control form-control-lg" id="filter_active_simple"
+              placeholder="Busca simples 1">
+          </div> -->
+
+            <div class="input-group">
+              <span class="input-group-text">Query filter</span>
+              <textarea class="form-control" aria-label="With textarea" rows="3" id="filter_active_simple"></textarea>
+            </div>
+            <div class="input-group" id="extra_filter">
+              <span class="input-group-text">Position</span>
+              <textarea class="form-control" aria-label="Latitude, Longitude" rows="1" id="filter_active_latlon"
+                placeholder="-12.34,56.78 (latitude, longitude), @tid= or URL"></textarea>
+              <span class="input-group-text">Distance (m)</span>
+              <input type="text" class="form-control" id="filter_active_latlon_dist" aria-label="distance" value="100">
+            </div>
+          </div>
+          <!-- <form class="row gx-3 gy-2 align-items-center"> -->
+          <form class="row g-3">
+            <!--
+            <div class="col-auto">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ui_filter_extras" checked>
+                <label class="form-check-label" for="ui_filter_extras">
+                  Extras
+                </label>
+              </div>
+            </div>
+            -->
+            <div class="col-auto">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ui_text_preview" checked>
+                <label class="form-check-label" for="ui_text_preview">
+                  Text preview (with position)
+                </label>
+              </div>
+            </div>
+            <div class="col-auto">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ui_text_nopos_preview" checked>
+                <label class="form-check-label" for="ui_text_nopos_preview">
+                  Text preview (unknow position)
+                </label>
+              </div>
+            </div>
+            <div class="col-auto">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="ui_map_preview" checked>
+                <label class="form-check-label" for="ui_map_preview">
+                  Map mode preview
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="tab-pane fade" id="export-tab-pane" role="tabpanel" aria-labelledby="export-tab" tabindex="0">
+          <div class="row" style="margin-bottom: 1em">
+            <div class="col">
+              <h2>Export</h2>
+              <div class="row">
+                <div class="col">
+                  <h3>File format, content, and parts</h3>
+                  <div class=" mb-3">
+                    <label for="export_filename" class="form-label">Filename</label>
+                    <div class="input-group">
+                      <input type="text" class="form-control" id="export_filename" placeholder="" value="sdm-export">
+                      <span class="input-group-text" id="export_fileext">.geojson</span>
+                    </div>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="export_filetype" id="export_filetype_a"
+                      value=".geojson" checked>
+                    <label class="form-check-label" for="export_filetype_a">
+                      GeoJSON
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="export_filetype" id="export_filetype_b"
+                      value=".geojsonl">
+                    <label class="form-check-label" for="export_filetype_b">
+                      GeoJSON Text Sequences ("GeoJSON Lines")
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="export_filetype" id="export_filetype_csv"
+                      value=".csv" disabled>
+                    <label class="form-check-label" for="export_filetype_csv">
+                      CSV (Comma-separated Values)
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="export_filetype" id="export_filetype_tsv"
+                      value=".tsv" disabled>
+                    <label class="form-check-label" for="export_filetype_tsv">
+                      TSV (Tab-separated Values)
+                    </label>
+                  </div>
+                </div>
+                <div class="col">
+                  <h3>Content to export</h3>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="export_content" id="export_content_a" value="1"
+                      checked>
+                    <label class="form-check-label" for="export_content_a">
+                      Data imported (with pre-filtering only), data with spatial position
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="export_content" id="export_content_b" value="2"
+                      disabled>
+                    <label class="form-check-label" for="export_content_b">
+                      Data imported (with pre-filtering only), data without spatial position
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="export_content" id="export_content_c" value="3"
+                      disabled>
+                    <label class="form-check-label" for="export_content_c">
+                      Data from real-time filtering, data with spatial position
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="export_content" id="export_content_d" value="4"
+                      disabled>
+                    <label class="form-check-label" for="export_content_d">
+                      Data from real-time filtering, data without spatial position
+                    </label>
+                  </div>
+                  <h3>Number of parts</h3>
+                  <p>(Not implemented yet. In theory saving as multiple files in theory would allow export large files)
+                  </p>
+                </div>
+              </div>
+              <div class="row text-center">
+                <div class="col">
+                  <button type="button" class="btn btn-primary mb-3 btn-lg text-center" id="export_download">Download
+                    exported
+                    file(s)</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+          <!--
+          <div class="row text-center" style="margin-bottom: 1em">
+            <div class="col">
+              <h3>Real time filter export</h3>
+              <button type="button" class="btn btn-secondary" id="memory_download">Download GeoJSON memória</button>
+            </div>
+            <div class="col">
+              <h3>Working memory export</h3>
+              <button type="button" class="btn btn-secondary mb-3 text-center" id="active_download">Download
+                GeoJSON</button>
+            </div>
+          </div>
+          -->
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- <div class="container my-5"> -->
+  <div class="container-fluid">
+    <div class="row">
+      <!-- <div class="col-xl-4" id="output_items_spatial"> -->
+      <div class="col-xl-4 col-lg-6" id="output_items_spatial">
+        <textarea class="form-control" spellcheck="false" placeholder="Output..." id="output"
+          style="height: 800px"></textarea>
+      </div>
+
+      <div class="col-xl-4 col-lg-6" id="output_items_nonspatial">
+        <textarea class="form-control" spellcheck="false" placeholder="Output for items without position..."
+          id="output2" style="height: 800px"></textarea>
+      </div>
+
+      <div id="map-container" class="col-xl-4" style="resize:vertical; overflow:auto;">
+        <!-- <div id="map-container" class="col-xl-8" style="resize:vertical; overflow:auto;"> -->
+        <div id='map'></div>
+      </div>
+    </div>
+  </div>
+  <div class="container">
+    <div id="map_dataset_list_container" class="row">
+      <div id='map_dataset_list'></div>
+    </div>
+  </div>
+
+  <div class="container v_meta-element">
+    <footer class="d-flex flex-wrap justify-content-between align-items-center py-3 my-4 border-top">
+      <div class="col-md-4 d-flex align-items-center">
+        <a href="/" class="mb-3 me-2 mb-md-0 text-muted text-decoration-none lh-1">
+          <svg class="bi" width="30" height="24">
+            <use xlink:href="#bootstrap" />
+          </svg>
+        </a>
+        <span class="mb-3 mb-md-0 text-muted">Made in 🇧🇷 by <a
+            href="https://www.openstreetmap.org/user/fititnt">Emerson Rocha</a>. License: <a
+            href="https://www.gnu.org/licenses/agpl-3.0.en.html">AGPL</a>.
+
+
+        </span>
+
+
+      </div>
+      <div class="col-md-4 d-flex">
+        <span class="text-end"><a data-bs-toggle="modal" data-bs-target="#exampleModal" href="#">Help</a></span>
+      </div>
+
+      <!-- <ul class="nav col-md-4 justify-content-end list-unstyled d-flex">
+        <li class="ms-3"><a class="text-muted" href="#"><svg class="bi" width="24" height="24">
+              <use xlink:href="#twitter" />
+            </svg></a></li>
+        <li class="ms-3"><a class="text-muted" href="#"><svg class="bi" width="24" height="24">
+              <use xlink:href="#instagram" />
+            </svg></a></li>
+        <li class="ms-3"><a class="text-muted" href="#"><svg class="bi" width="24" height="24">
+              <use xlink:href="#facebook" />
+            </svg></a></li>
+      </ul> -->
+    </footer>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="exampleModalLabel">Ajuda</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <h2>Aba importar</h2>
+          <p>
+            As opções aqui restringem quais elementos ficarão ativos para filtros posteriores de modo a permitir
+            trabalhar até mesmo com arquivos enormes.
+          <details>
+            <summary>Opções</summary>
+            <strong>Chaves</strong>: quais attributos devem ser carregados dos arquivos? Use * para qualquer
+            attributo.<br>
+            <strong>Filtro de chave-valor</strong>: um ou mais parametros por linha para ignorar o que carregar para
+            memória.<br>
+          </details>
+          <h2>Aba filtro</h2>
+          <p>
+            Tela principal. Copie atributos de um exemplo semelhante já carregado no passo anterior e o resultado será
+            filtrado em tempo real.
+          </p>
+          <h2>Aba exportar</h2>
+          <p>
+            <em>Não implementado.</em> Dica:
+            Use a tela anterior para achar os objetos que tem interesse e copie e cole para seu editor OpenStreetMap
+            favorito. Testado com iD
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          <!-- <button type="button" class="btn btn-primary">Save changes</button> -->
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="exampleModal2" tabindex="-1" aria-labelledby="exampleModal2Label" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="exampleModal2Label">Opções</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <textarea class="form-control" id="config"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+          <!-- <button type="button" class="btn btn-primary">Save changes</button> -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!--
+  @TODO maybe implement off-canvas https://getbootstrap.com/docs/5.3/components/offcanvas/#methods
+  -->
+  <div style="position: fixed;  bottom: 0; padding: 5px; width: 100%;">
+    V:
+    <input type="checkbox" value="" id="v_meta" onchange="ui_clean(event)" checked>
+    <input type="checkbox" value="" id="v_filter_up" onchange="ui_clean(event)" checked>
+    <input type="checkbox" value="" id="v_filter_bottom" onchange="ui_clean(event)" checked>
+    |
+    <input type="checkbox" value="" id="v_map_autofocus" onchange="ui_clean(event)" checked
+      title="enable/disable map autofocus when filters change">
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-kenU1KFdBIe4zVF0s0G1M5b4hcpxyD9F7jL+jjXkk+Q2h455rYXK/7HAuoJl+0I4"
+    crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"
+    integrity="sha384-RLIyj5q1b5XJTn0tqUhucRZe40nFTocRP91R/NkRJHwAe4XxnTV77FXy/vGLiec2"
+    crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"
+    integrity="sha512-dfX5uYVXzyU8+KHqj8bjo7UkOdg18PaOtpa48djpNbZHwExddghZ+ZmzWT06R5v6NSk3ZUfsH6FNEDepLx9hPQ=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script>
+
+    /**
+     * From the initial author (Emerson Rocha) as 2024-06-16 v0.5.2-beta
+     * to other programmers reading this code:
+     *
+     * 1. Yes, it is a big, single HTML page including the JS logic not
+     *    already in external libraries
+     * 2. Yes, it could get a rewrite. At the moment I'm unsure if this
+     *    will get significant number of users to worth to me
+     *    take more time doing the tool than actually using it
+     * 3. Even at this current state, we could make it viable to
+     *    at least small parts (e.g. addr:street complex parsing)
+     *    allow others suggest small parts (function or maybe JS Classes)
+     *    to make it "just work" for
+     **/
+
+
+    /**
+     * @summary   Holds reference to imported data (including sliced versions and some statistics)
+     **/
+    let SDMData = {
+      Auxiliary: [], // The extra working data after the import (no spatial position, e.g. CSV imports)
+      AuxiliaryPreview: [], // SDM.Auxiliary sliced for preview on interface
+      Main: [], // The full working data after the import (only part with geospatial position)
+      MainPreview: [], // SDMData.Main sliced for preview on map
+      Reference: [], // Data used only at import to pre-select uploads on SDMData.Main / SDMData.Auxiliary
+      ReferenceStats: {
+        "ref_files": 0,
+        "ref_items": 0,
+        "ref_items_no_pos": 0,
+        "ref_items_no_tags": [],
+        "target_files": 0,
+        "target_items": 0,
+        "target_items_no_pos": 0,
+        "target_items_no_tags": 0,
+      }
+    }
+
+    /**
+     * @summary   Configurations. Interface may change it
+     **/
+    let SDMConf = {
+      Preview: {
+        text: 10000,  // maximum_active_display
+        map: 10000  // maximum_active_display_map
+      },
+      Reference: {
+        "distance": 1000,
+        "distance2": 100,
+        "rules": [],
+        "allow_missing_ref": true
+      }
+    }
+
+    let SDMOption = {
+
+      // Text fields to attempt automatic detection
+      AutoField: {
+        // x,y may not means this
+        // @see https://gis.stackexchange.com/questions/11626/does-y-mean-latitude-and-x-mean-longitude-in-every-gis-software
+        pos: {
+          latitude: [
+            "@latitude",
+            "latitude",
+            "Latitude",
+            "LATITUDE",
+            "@lat",
+            "@y",
+            "Y",
+            "y"
+          ],
+          longitude: [
+            "@longitude",
+            "longitude",
+            "Longitude",
+            "LONGITUDE",
+            "@lon",
+            "@x",
+            "X",
+            "x"
+          ],
+          mixed_point: [
+            "coordinate_location",
+            "geometry",
+          ]
+        }
+      },
+
+      // Not fully implemented
+      Renamer: {
+        "itemLabel": ["name"],
+        "item": ["wikidata", "helper_wikidata_q()"],
+        "loc": ["coordinate_location", "helper_point()"],
+        "geo": ["coordinate_location", "geo()"],
+      }
+    }
+    // const maximum_active_display = 10000
+    // const maximum_active_display_map = 10000
+    // var WorkingData = []
+    // var SDMData.MainPreview = []
+
+    // @TODO maybe allow multiple tabular data
+    // var TabularData = []
+    // var TabularDataPreview = []
+
+    // let ReferenceData = []
+
+    // let reffile_options = {
+    //   "distance": 1000,
+    //   "distance2": 100,
+    //   "rules": [],
+    //   "allow_missing_ref": true
+    // }
+
+    // let ReferenceDataMatchStatistics = {
+    //   "ref_files": 0,
+    //   "ref_items": 0,
+    //   "ref_items_no_pos": 0,
+    //   "ref_items_no_tags": [],
+    //   "target_files": 0,
+    //   "target_items": 0,
+    //   "target_items_no_pos": 0,
+    //   "target_items_no_tags": 0,
+    // }
+
+    // // x,y may not means this
+    // // @see https://gis.stackexchange.com/questions/11626/does-y-mean-latitude-and-x-mean-longitude-in-every-gis-software
+    // const fields_latitude = [
+    //   "latitude",
+    //   "Latitude",
+    //   "LATITUDE",
+    //   "@latitude",
+    //   "@lat",
+    //   "Y",
+    //   "y",
+    //   "@y"
+    // ]
+
+    // const fields_longitude = [
+    //   "longitude",
+    //   "Longitude",
+    //   "LONGITUDE",
+    //   "@longitude",
+    //   "@lon",
+    //   "X",
+    //   "x",
+    //   "@x"
+    // ]
+
+    // Loading order = index do arquivo
+    var WorkingInputFiles = []
+    // var refpoint_latlon = null // [-12.34, 56.78]
+    let refpoint_latlon = null // [-12.34, 56.78]
+    //var refpoint_latlon2 = null // [-12.34, 56.78]
+    // var refpoint_latitude = null
+    // var refpoint_longitude = null
+    let refpoint_distance = 10
+    // var WorkingDataFiltered = []
+
+    // let filter_fids = []
+    let enabled_files = [-1]
+    let hide_fid = -1
+    let hide_fid_dist = 25
+    let hide_fid_keys = []
+    let hide_fid_affected = [] // Arrays of zeroes, one per item
+    let focus_fid = -1
+    let import_fields_anyifosm_nwr = true
+
+    let debounceTimerFilters
+    let debounceAttemptedCount = 0
+    let debounceRealCount = 0
+
+    // const maximum_active_display = 1000
+    // const maximum_active_display = 25000
+    // const maximum_active_display = 1000
+    // const maximum_active_display_map = 1000
+    // const maximum_active_display = 10000
+    // const maximum_active_display_map = 10000
+    const locale_number = 'pt'
+    // const data_active_count_m = document.getElementById("data_active_count_m");
+    let _is_exportable = []
+    let _is_not_exportable = []
+
+    // console.log('refpoint_latlon', refpoint_latlon)
+
+    const output = document.getElementById("output");
+    const output2 = document.getElementById("output2");
+    const filter_active_simple = document.getElementById("filter_active_simple");
+    const data_ex_filter = document.getElementById("data_ex_filter");
+    const data_ex_fields_exporter = document.getElementById("data_ex_fields_exporter");
+    const data_ex_count_i = document.getElementById("data_ex_count_i");
+    const data_ex_count_t = document.getElementById("data_ex_count_t");
+    const data_active_count = document.getElementById("data_active_count");
+    // const render_active = document.getElementById("render_active");
+
+
+    function _import_keys_renamer(item_object) {
+
+      if (!item_object) {
+        return item_object
+      }
+      //SDMOption.Renamer.item_object
+
+      // console.log('iniciando')
+
+      for (const [key, value] of Object.entries(item_object)) {
+        // if (key in Object.keys(SDMOption.Renamer)) {
+        if (Object.keys(SDMOption.Renamer).indexOf(key) > -1) {
+          // console.log('fooi')
+          // Object.defineProperty(o, new_key,
+          // Object.getOwnPropertyDescriptor(o, old_key));
+          // delete o[old_key];
+          Object.defineProperty(item_object, SDMOption.Renamer[key][0],
+            Object.getOwnPropertyDescriptor(item_object, key));
+          delete item_object[key];
+        }
+      }
+
+      return item_object
+    }
+
+    function _import_values_processor(item_object) {
+
+      if (!item_object) {
+        return item_object
+      }
+
+      if (Object.keys(item_object).indexOf("wikidata") > -1) {
+        if (item_object["wikidata"].startsWith("http")) {
+          let parts = item_object["wikidata"].split("entity/")
+          if (parts.length === 2 && parts[1].startsWith("Q")) {
+            item_object["wikidata"] = parts[1]
+          }
+        }
+      }
+
+      return item_object
+    }
+
+    // function _import_
+
+    /**
+     * 
+     * 
+     **/
+    function _import_expand_coordinates(item_object) {
+
+      // Do not call this from something already GeoJSON
+
+
+
+      if (!item_object) {
+        return null
+      }
+
+    }
+
+
+    function _parse_options_even_more_regex(key, regex_str) {
+      let names = [
+        'name', 'old_name', 'alt_name', 'official_name'
+      ]
+
+      let addrs = [
+        'addr:street', 'addr:place'
+      ]
+
+      if (names.indexOf(key) > -1 || addrs.indexOf(key) > -1) {
+        // https://stackoverflow.com/questions/990904/remove-accents-diacritics-in-a-string-in-javascript
+        regex_str = regex_str.toLowerCase()
+        // regex_str = regex_str.replace(/áàâ/)
+        regex_str = regex_str.normalize("NFD").replace(/\p{Diacritic}/gu, "")
+        r = regex_str.replace(new RegExp(/[àáâãäå]/g), "a");
+        r = r.replace(new RegExp(/æ/g), "ae");
+        r = r.replace(new RegExp(/ç/g), "c");
+        r = r.replace(new RegExp(/[èéêë]/g), "e");
+        r = r.replace(new RegExp(/[ìíîï]/g), "i");
+        r = r.replace(new RegExp(/ñ/g), "n");
+        r = r.replace(new RegExp(/[òóôõö]/g), "o");
+        r = r.replace(new RegExp(/œ/g), "oe");
+        r = r.replace(new RegExp(/[ùúûü]/g), "u");
+        regex_str = r.replace(new RegExp(/[ýÿ]/g), "y");
+      }
+
+      if (addrs.indexOf(key) > -1) {
+        // https://stackoverflow.com/questions/990904/remove-accents-diacritics-in-a-string-in-javascript
+        // regex_str = regex_str.lower()
+        // regex_str = regex_str.replace(/áàâ/)
+        // regex_str = regex_str.normalize("NFD").replace(/\p{Diacritic}/gu, "")
+        r = regex_str.replace(new RegExp(/^(avenida\s)/), "");
+        r = r.replace(new RegExp(/^(av\.\s)/), "");
+        r = r.replace(new RegExp(/^(av\s)/), "");
+        r = r.replace(new RegExp(/^(travessa\s)/), "");
+        r = r.replace(new RegExp(/^(alameda\s)/), "");
+        r = r.replace(new RegExp(/^(rua\s)/), "");
+        r = r.replace(new RegExp(/^(r\.\s)/), "");
+        r = r.replace(new RegExp(/^(r\s)/), "");
+        regex_str = r.replace(new RegExp(/^(praca\s)/), "");
+      }
+
+      // // Other dummy text
+      // if (names.indexOf(key) > -1 || addrs.indexOf(key) > -1) {
+      //   // https://stackoverflow.com/questions/990904/remove-accents-diacritics-in-a-string-in-javascript
+
+      //   r = regex_str.replace(new RegExp(/\sde\s/g),"\s?d?e?\s");
+      //   r = regex_str.replace(new RegExp(/\sda\s/g),"\s?d?a?\s");
+      //   r = regex_str.replace(new RegExp(/\sdo\s/g),"\s?d?o?\s");
+
+      //   // regex_str = r.replace(new RegExp(/[ýÿ]/g),"y");
+      //   regex_str = r
+      // }
+
+      return regex_str
+
+    }
+
+    /**
+      * Calculates the haversine distance between point A, and B.
+      * @author https://stackoverflow.com/a/48805273/894546
+      *
+      * @param {number[]} latlngA [lat, lng] point A
+      * @param {number[]} latlngB [lat, lng] point B
+      * @param {boolean} isMiles If we are using miles, else km.
+      */
+    const haversineDistance = ([lat1, lon1], [lat2, lon2], isMiles = false) => {
+      const toRadian = angle => (Math.PI / 180) * angle;
+      const distance = (a, b) => (Math.PI / 180) * (a - b);
+      const RADIUS_OF_EARTH_IN_KM = 6371;
+
+      const dLat = distance(lat2, lat1);
+      const dLon = distance(lon2, lon1);
+
+      lat1 = toRadian(lat1);
+      lat2 = toRadian(lat2);
+
+      // Haversine Formula
+      const a =
+        Math.pow(Math.sin(dLat / 2), 2) +
+        Math.pow(Math.sin(dLon / 2), 2) * Math.cos(lat1) * Math.cos(lat2);
+      const c = 2 * Math.asin(Math.sqrt(a));
+
+      let finalDistance = RADIUS_OF_EARTH_IN_KM * c;
+
+      if (isMiles) {
+        finalDistance /= 1.60934;
+      }
+
+      return finalDistance;
+    };
+
+    /**
+     * Calculate datetime difference betewn dates
+     * Used for profile of loading very large files
+     *
+     * @author https://stackoverflow.com/a/59793084/894546
+     **/
+    function humanDiff(t1, t2) {
+      const diff = Math.max(t1, t2) - Math.min(t1, t2)
+      const SEC = 1000, MIN = 60 * SEC, HRS = 60 * MIN
+
+      const hrs = Math.floor(diff / HRS)
+      const min = Math.floor((diff % HRS) / MIN).toLocaleString('en-US', { minimumIntegerDigits: 2 })
+      const sec = Math.floor((diff % MIN) / SEC).toLocaleString('en-US', { minimumIntegerDigits: 2 })
+      const ms = Math.floor(diff % SEC).toLocaleString('en-US', { minimumIntegerDigits: 4, useGrouping: false })
+
+      return `${hrs}:${min}:${sec}.${ms}`
+    }
+
+    function parse_options(text) {
+      // return object with regexes for key-value
+      let result = {}
+      if (!text || text.trim().length === 0) {
+        return null
+      }
+      text.split('\n').forEach(element => {
+        element = element.trim()
+        if (element.length > 0 && element.indexOf('//') === -1) {
+          let parts = element.split('=')
+          let key = parts.shift()
+          let regex_str = parts.join('=')
+
+          regex_str = _parse_options_even_more_regex(key, regex_str)
+          result[key] = new RegExp(regex_str, "i")
+          // console.log(element)
+        }
+
+      });
+      return result
+    }
+
+    function parse_options_simple(text, regex_like = true) {
+      // return object with regexes for key-value
+      let result = []
+      if (!text || text.trim().length === 0) {
+        return null
+      }
+      text.split('\n').forEach(element => {
+        element = element.trim()
+        if (element.length > 0 && element.indexOf('//') === -1) {
+          // let parts = element.split('=')
+          // let key = parts.shift()
+          // let regex_str = parts.join('=')
+          // result[key] = new RegExp(regex_str, "i")
+          // result[key] = new RegExp(element, "i") // Not case sensitive
+          // result[key] = new RegExp(element)
+          if (regex_like) {
+            result.push(new RegExp(element))
+          } else {
+            result.push(element.trim())
+          }
+
+          // console.log(element)
+        }
+      });
+      return result
+    }
+
+
+    /**
+     * return object with regexes for key-value
+     * Only grab lines startign with // and syntax-like
+     * //@fid=3//addr:postcode=12345
+     * Which means that only file-layer number 3 apply this rule
+     * 
+     * returns object if have anything meaningful, null otherwise
+     * 
+     * @example
+     *    //@fid=3//addr:postcode=12345
+     *    name=hospital
+     **/
+    function parse_options_specific(text) {
+      // return object with regexes for key-value
+      let result_group = {}
+      //let result = {}
+      if (!text || text.trim().length === 0) {
+        return null
+      }
+      text.split('\n').forEach(element => {
+        element = element.trim()
+        if (element.length > 0 && element.indexOf('//@fid=') === 0) {
+          let _parts2 = element.replace("//@fid=", "").split("//")
+          //console.log(_parts2)
+          //if (parseInt(_parts2[0])) {
+          if (parseInt(_parts2[0]) || _parts2[0] === "0") {
+
+            // let fid = _parts2[0].toString()
+            let fid = _parts2[0]
+            if (!(`@fid=${fid}` in result_group)) {
+              result_group[`@fid=${fid}`] = {}
+            }
+
+            //let parts = element.split('=')
+            let parts = _parts2[1].split('=')
+            let key = parts.shift()
+            let regex_str = parts.join('=')
+
+            regex_str = _parse_options_even_more_regex(key, regex_str)
+            // result[key] = new RegExp(regex_str, "i")
+            result_group[`@fid=${fid}`][key] = new RegExp(regex_str, "i")
+            // console.log(element)
+          }
+
+        }
+
+      });
+      if (Object.keys(result_group).length === 0) {
+        return null
+      }
+
+      return result_group
+    }
+
+
+    /**
+     * 
+     **/
+    function geojson_feature_centroid(feature) {
+
+      // Sorry, that's what we got for now
+      return geojson_feature_pseudo_centroid(feature)
+    }
+
+    /**
+     *
+     * Not recommended use geojson_feature_centroid()
+     *
+     * Temporary function to do quick return coordinates
+     * of the first point instead of do the complex calculation
+     * 
+     **/
+    function geojson_feature_pseudo_centroid(feature) {
+      if (!feature || !("coordinates" in feature["geometry"])) {
+        return null
+      }
+      let one_lat = false
+      let one_lon = false
+
+      // https://datatracker.ietf.org/doc/html/rfc7946
+      let pos = feature["geometry"]["coordinates"]
+      // console.log('pos', pos, Array.isArray(pos), Array.isArray(pos[0]), pos.length)
+      if (Array.isArray(pos) && !Array.isArray(pos[0]) && pos.length >= 2) {
+        one_lat = pos[0]
+        one_lon = pos[1]
+      } else if (Array.isArray(pos) && Array.isArray(pos[0]) && pos[0].length >= 2) {
+        one_lat = pos[0][0]
+        one_lon = pos[0][1]
+      } else if (Array.isArray(pos) && Array.isArray(pos[0]) && Array.isArray(pos[0][0]) && pos[0][0].length >= 2) {
+        one_lat = pos[0][0][0]
+        one_lon = pos[0][0][1]
+      }
+      if (one_lat && one_lon) {
+        return [one_lat, one_lon]
+      }
+      return null
+    }
+
+    function get_field_latnon_if_exist(field_names) {
+      // let latitude = false
+      // let longitude = false
+      // let index_ = false
+
+      // for (let index = 0; index < SDMOption.AutoField.pos.latitude.length; index++) {
+      for (let index = 0; index < SDMOption.AutoField.pos.latitude.length; index++) {
+        const _lat = SDMOption.AutoField.pos.latitude[index];
+        const _lon = SDMOption.AutoField.pos.longitude[index];
+        if (field_names.indexOf(_lat) > -1 && field_names.indexOf(_lon) > -1) {
+          return [_lat, _lon]
+        }
+      }
+
+      return false
+    }
+
+    function get_field_wkt_if_exist(field_names) {
+      // early attempt to see if could have WKT field
+      for (let index = 0; index < SDMOption.AutoField.pos.mixed_point.length; index++) {
+        let _key = SDMOption.AutoField.pos.mixed_point[index]
+        if (_key in field_names) {
+          return _key
+        }
+      }
+
+      return false
+    }
+
+    function get_field_latnon_if_wkt_exist(item_properties) {
+      // let latitude = false
+      // let longitude = false
+      // let index_ = false
+
+      function _extract(value) {
+        if (!!value && /^point|linestring|POLYGON.*/i.test(value)) {
+          const value2 = value.replace(/[a-zA-Z]+/, "").trim()
+          const value3 = value2.split(",")
+          const value4 = value3[0].replace("(", "").replace(")", "")
+          const value5 = value4.split(" ")
+          if (value5.length === 2) {
+            return value5
+          }
+        }
+        return false
+      }
+
+      // @TODO implement other more complex cases
+      //       https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry
+
+      // for (let index = 0; index < SDMOption.AutoField.pos.latitude.length; index++) {
+      for (let index = 0; index < SDMOption.AutoField.pos.mixed_point.length; index++) {
+        let _key = SDMOption.AutoField.pos.mixed_point[index]
+
+        if (_key in item_properties) {
+          let _candidate = _extract(item_properties[_key])
+          if (_candidate !== false) {
+            return _candidate
+          }
+        }
+
+        // // const _lat = SDMOption.AutoField.pos.latitude[index];
+        // const _lon = SDMOption.AutoField.pos.longitude[index];
+        // if (field_names.indexOf(_lat) > -1 && field_names.indexOf(_lon) > -1) {
+        //   return [_lat, _lon]
+        // }
+      }
+
+      return false
+    }
+
+
+    function match_tags(ref_props, item_props, rules, missing_ref = true, missing_target = true) {
+      if (!rules || rules.length === 0) {
+        // return true
+        return 100
+      }
+
+      let success = 0
+      let skip = 0
+      for (let index = 0; index < rules.length; index++) {
+        const rule_key = rules[index];
+
+        if (!(rule_key in ref_props)) {
+          if (missing_ref) {
+            skip += 1
+          }
+          continue
+        }
+        if (!(rule_key in ref_props)) {
+          if (missing_target) {
+            skip += 1
+          }
+          continue
+        }
+        // @TODO implement some normalization for names, addr:postcode, etc
+        // levenshtein.js https://gist.github.com/andrei-m/982927
+        if (ref_props[rule_key] === item_props[rule_key]) {
+          success += 1
+        }
+      }
+
+      if (success === rules.length) {
+        return 100
+      }
+
+      if (success === 0 && skip !== rules.length) {
+        return 0
+      }
+
+      if (success === 0 && skip === rules.length) {
+        return 51
+      }
+
+      // @TODO
+      return 0
+
+    }
+
+    /**
+     * Returns likehood of item match by at least one item from reference dataset
+     * 
+     * (For sake of computation power, it only return the very first matched object)
+     * 
+     * @param item  GeoJSON Feature object
+     * @returns Number  0 (very unlikely), > 90 stricter match
+     */
+    function filter_by_reference_on_import(item) {
+      // return true
+      let item_props = item["properties"]
+      let item_pos = geojson_feature_centroid(item)
+      let dist = -1
+      // let already_failed = false
+      let already_matched = null
+      let score = 0
+
+      SDMData.ReferenceStats.target_items += 1
+      if (item_pos === null && (SDMConf.Reference.distance !== -1 || SDMConf.Reference.allow_missing_ref)) {
+        SDMData.ReferenceStats.target_items_no_pos += 1
+        // console.log('filter_by_reference_on_import item_pos', item_pos)
+        return 0
+      }
+
+      let ref_item
+      let ref_pos
+      let ref_vs_item_dist
+      let _dist_km
+      let _tag_confidence = 0
+
+      // console.log('filter_by_reference_on_import going to test', item)
+
+      for (let index = 0; index < SDMData.Reference.length; index++) {
+        ref_item = SDMData.Reference[index];
+        ref_pos = geojson_feature_centroid(ref_item)
+        if (!ref_pos) {
+          console.log('ref_item failed centroid', ref_pos, item_pos)
+          continue
+        }
+
+        _dist_km = haversineDistance(item_pos, ref_pos)
+        // ref_vs_item_dist = _dist_km / 1000
+        ref_vs_item_dist = _dist_km * 1000
+        if (ref_vs_item_dist <= SDMConf.Reference.distance) {
+          // Try match by tags
+          _tag_confidence = match_tags(ref_pos, item_pos, SDMConf.Reference.rules, true, true)
+
+          if (_tag_confidence > 49) {
+            already_matched = true
+            break
+          }
+
+          // If failed by tags, but less stricter match allows, test agasinst
+          // stricter distance
+
+          if (ref_vs_item_dist <= SDMConf.Reference.distance2) {
+            // console.log('stricter match', item, ref_vs_item_dist, _dist_km)
+            already_matched = true
+          }
+        }
+        // const dist_in_km = haversineDistance(item_pos, ref_latlon)
+      }
+
+      // if (SDMConf.Reference.rules && SDMConf.Reference.rules.length) {
+      //   let tags = []
+      //   if (item.hasOwnProperty("properties")) {
+      //     tags = Object.keys(_item["properties"])
+      //   }
+
+      //   SDMConf.Reference.rules.forEach(function (_rule, index) {
+      //     // if (!(tags.indexOf(_item) > -1)) {
+      //     let at_least_one_match = false
+      //     tags.forEach(function (prop_key) {
+      //       if (prop_key.match(_rule)) {
+      //         at_least_one_match = true
+      //       }
+      //     })
+      //     if (!at_least_one_match) {
+      //       SDMData.ReferenceStats.target_items_no_tags[index] += 1
+      //     }
+      //   })
+      // }
+
+      // SDMData.ReferenceStats.target_items_no_tags
+      if (already_matched === true) {
+        // @TODO make this more informative
+        score = 100
+      }
+      // return true
+      return score
+    }
+
+    function filter(item, options_general, options_specific, inverse = false) {
+      // console.log('filter', item, options_general, options_specific)
+      // if (options === null || !!options) {
+      //   return !!inverse
+      // }
+      // console.log('filter', item, options)
+
+      let options = options_general || {}
+      let item_props = item["properties"]
+      //let item_fid = 
+
+      // console.log('options before', item["__fid"], item["__tid"], options, options_specific)
+
+      // if (options_specific !== null && `@fid=${item["__fid"]}` in options_specific) {
+      if (options_specific && options_specific[`@fid=${item["__fid"]}`]) {
+        // console.log('options tem especifico', item["__fid"], item["__tid"], options, options_specific[`@fid=${item["__fid"]}`])
+        for (const [key, value] of Object.entries(options_specific[`@fid=${item["__fid"]}`])) {
+          options[key] = value
+        }
+      } else {
+        // console.log('options !!!NAO!! tem especifico', item["__fid"], item["__tid"], options)
+      }
+
+      // console.log('options after', item["__fid"], options, options_specific)
+
+      let maches_count = 0
+      let failed = false
+      for (const [key, regex] of Object.entries(options)) {
+        // if (!item_props.hasOwnProperty(key)) {
+        if (!item_props.hasOwnProperty(key) && options[key] !== '') {
+          return false
+        }
+        // let _regex = ''
+        let value_str = item_props[key]
+        if (typeof value_str !== 'sring') {
+          value_str = value_str.toString()
+        }
+        // if 
+        // console.log(item[key])
+        if (!value_str.match(regex)) {
+          // Maybe tolerage optional matches
+          // maches_count += 1
+          // maches_count += 1
+          return false
+        } else {
+          maches_count += 1
+        }
+        // console.log(`${key}: ${value}`);
+      }
+      // console.log('passou', item["__fid"], item["__tid"], options)
+      return true
+    }
+
+
+
+    /**
+     * Returns true if both objects are <= to maximum distance
+     * Zero means exact position
+     **/
+    function filter_by_dist(item_geometry, ref_geometry_or_latlon, dist_in_m, default_invalid_item = true, default_ref_invalid = true) {
+
+      // console.log('item_geometry', item_geometry, ref_latlon)
+      // console.log(' filter by dist_in_m', dist_in_m)
+
+      let item_latlon = null
+      let ref_latlon = null
+
+      // Tolerate the item not having geometry
+      if (!item_geometry) {
+        // return true
+
+        // console.log('invalid item_geometry defaults to ', default_invalid_item)
+        return default_invalid_item
+      }
+      // Does not colerate ref have no geometry
+      if (!ref_geometry_or_latlon) {
+        // return false
+
+        // console.log('invalid ref_geometry_or_latlon defaults to ', default_ref_invalid)
+        return default_ref_invalid
+      }
+
+      if (item_geometry["type"] == "Point") {
+        item_latlon = item_geometry["coordinates"]
+      } else if (item_geometry["type"] == "Polygon") {
+        // THe ideal would be calculate the centroid, but here taking just first point
+        item_latlon = item_geometry["coordinates"][0][0]
+      } else {
+        // @TODO test other types
+        return default_invalid_item
+      }
+
+      if (Array.isArray(ref_geometry_or_latlon) && ref_geometry_or_latlon.length === 2) {
+        ref_latlon = ref_geometry_or_latlon
+      } else if (ref_geometry_or_latlon["type"] == "Point") {
+        ref_latlon = ref_geometry_or_latlon["coordinates"]
+      } else if (ref_geometry_or_latlon["type"] == "Polygon") {
+        // THe ideal would be calculate the centroid, but here taking just first point
+        ref_latlon = ref_geometry_or_latlon["coordinates"][0][0]
+      } else {
+        // @TODO test other types
+        return default_ref_invalid
+      }
+
+      // if (dist_in_m === 0) {
+      //   return item_latlon === ref_latlon
+      // }
+
+      // console.log(item_latlon, ref_latlon)
+
+      const dist_in_km = haversineDistance(item_latlon, ref_latlon)
+
+      // console.log('filter_by_dist', dist_in_km, dist_in_m, dist_in_km <= (dist_in_m / 1000))
+
+      // if (!dist_in_m) {
+      //   console.log('dist_in_m', dist_in_m)
+      //   console.trace(dist_in_m)
+      // }
+      return dist_in_km <= (dist_in_m / 1000)
+    }
+
+    function filter_in_fids(item, fids_list) {
+      // console.log('filter_in_fids', item, fids_list, item["__fid"], fids_list.indexOf(item["__fid"]) > -1)
+
+      // Without explicitly list to filter, we assume its always pass
+      //if (!fids_list || fids_list.length === 0) {
+      // if (fids_list.length === 0) {
+      //   return true
+      // }
+
+      // return false
+
+      return fids_list.indexOf(item["__fid"]) > -1
+    }
+
+
+    /**
+     * Returns false if an item matched one or more itens from reference file
+     * true means it did not matched
+     **/
+    function filter_substract_file(item, hide_fid, hide_fid_dist, hide_fid_keys) {
+      // console.log('filter_substract_file started', item, hide_fid, hide_fid_dist, hide_fid_keys)
+
+      if (hide_fid === -1) {
+        // No source file to substract: skip
+        return true
+      }
+
+      if (hide_fid_dist <= -1 && hide_fid_keys.length === 0) {
+        // console.log('filter_substract_file skipped 1')
+        console.warn("filter_substract_file have clauses too flexible (any world distance, any tag)")
+        // return true
+        // document.getElementById("hide_fid_output_log").innerText = "Universal exclusion?"
+        hide_fid_affected = ["Universal exclusion? (any distance, any tagging)"]
+        return false
+      }
+
+      // This should not happen
+      if (item === null || !item["geometry"] || item["geometry"] === null) {
+        // increase conter
+        // console.log('hide_fid_affected', hide_fid_affected)
+        // hide_fid_affected[item["__fid"]] -= 1
+        // console.log('filter_substract_file skipped 2')
+        return false
+      }
+
+      // console.log('filter_substract_file going to test', item)
+
+      // As soon as we gind
+      for (const source_item of SDMData.Main) {
+        // No need to substract itens from subtracting file itself
+        if (source_item["__fid"] === hide_fid) {
+          // console.log('....', source_item["__fid"], hide_fid)
+          let okay = true
+          let has_distmatch = null
+          let has_keymatch = null
+          // @TODO implement tagging check
+
+
+          if (hide_fid_keys.length > 0) {
+
+            // Keys exist, change from null to default false
+            has_keymatch = false
+
+            let _keys_matched = 0
+            // console.log('before loop item vs source_item(file to match)', item, source_item)
+            for (const testkey of hide_fid_keys) {
+              //console.log('testkey', source_item["properties"])
+              if (testkey in source_item["properties"] && testkey in item["properties"]) {
+                let _testval = source_item["properties"][testkey].toString()
+                let _targetval = item["properties"][testkey].toString()
+                // console.log('test', _testval, _targetval)
+                if (_targetval.includes(";")) {
+                  // console.log('includes;')
+                  if (_targetval.split(";").indexOf(_testval)) {
+                    // okay = false
+                    _keys_matched += 1
+                  }
+                } else if (_testval === _targetval) {
+                  _keys_matched += 1
+                  // console.log('prefect tagging match _testval, _targetval', _testval, _targetval)
+                }
+              }
+            }
+
+            if (_keys_matched > 0) {
+              //okay = false
+              has_keymatch = true
+            }
+            // okay = (_keys_matched > 0)
+          }
+
+          // console.log('result taging for item', okay, item)
+
+          // if (hide_fid_dist > -1) {
+          if (hide_fid_dist > -1 && (has_keymatch === null || has_keymatch === true)) {
+            has_distmatch = false
+            if (filter_by_dist(source_item["geometry"], item["geometry"], hide_fid_dist)) {
+              has_distmatch = true
+              // console.log('prefect dist match', source_item, item)
+            }
+          }
+
+          // if (okay === true) {
+          if (
+            (has_distmatch === null || has_distmatch === true) &&
+            (has_keymatch === null || has_keymatch === true)
+          ) {
+            // Already have a match, count and abort imediatelly
+            // increase conter
+            // console.log('hide_fid_affected, must not be included', hide_fid_affected)
+            hide_fid_affected[item["__fid"]] -= 1
+            return false
+          }
+        }
+      }
+
+
+      // No match means we let it run
+      // console.warn('filter_substract_file allow this item', item)
+      return true
+    }
+
+    function _init_exportable_or_not(untested_key, exportable_fields) {
+      let value_str = untested_key
+      let at_least_one = false
+      if (exportable_fields === null) {
+        _is_exportable.push(untested_key)
+        return true
+      }
+
+      if (typeof value_str !== 'sring') {
+        value_str = value_str.toString()
+      }
+
+      exportable_fields.forEach(function (regex) {
+        if (value_str.match(regex)) {
+          _is_exportable.push(untested_key)
+          at_least_one = true
+          return true
+          // break
+        }
+      })
+
+      if (!at_least_one) {
+        _is_not_exportable.push(untested_key)
+        return false
+      }
+
+      return null
+
+      // for (const [key, regex] of Object.entries(options)) {
+      //   if (!item.hasOwnProperty(key)) {
+      //     return false
+      //   }
+      //   // let _regex = ''
+      //   let value_str = item[key]
+      //   if (typeof value_str !== 'sring') {
+      //     value_str = value_str.toString()
+      //   }
+      //   // if 
+      //   // console.log(item[key])
+      //   if (!value_str.match(regex)) {
+      //     // Maybe tolerage optional matches
+      //     // maches_count += 1
+      //     // maches_count += 1
+      //     return false
+      //   } else {
+      //     maches_count += 1
+      //   }
+    }
+
+    function select_attributes(item, exportable_fields, input_file_index, temp_id, import_fields_anyifosm_nwr = true) {
+      // @TODO keyval ; Only select attributes for properties
+      let final = {
+        '__fid': input_file_index, // source file sequencial identifier (start from 1)
+        '__tid': temp_id, // temporary unique id, serial, starts from 1
+        'type': item['type'],
+        'geometry': item['geometry'],
+        'properties': {},
+      }
+
+      if ("@id" in item['properties'] && import_fields_anyifosm_nwr &&
+        /^(node\/|way\/|relation\/|note\/)-?\d+/.test(item['properties']["@id"])) {
+        final['properties'] = item["properties"]
+
+      } else if (!exportable_fields) {
+        final['properties'] = item["properties"]
+      } else {
+
+        for (const [key, value] of Object.entries(item['properties'])) {
+
+          // We will always ignore empty strings
+          if (value === "") {
+            continue
+          }
+
+          if (_is_exportable.indexOf(key) > -1) {
+            final['properties'][key] = value
+          } else if (_is_not_exportable.indexOf(key) > -1) {
+            // skip
+          } else if (_init_exportable_or_not(key, exportable_fields)) {
+            final['properties'][key] = value
+          }
+        }
+
+        // exportable_fields.forEach(function (key_regex) {
+        //
+        //})
+      }
+      return final
+    }
+
+    const saveGeoJSON = (geojson_object, filename) => {
+      const blob = new Blob([JSON.stringify(geojson_object, null, 2)], {
+        type: 'application/geo+json',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.geojson`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    const saveGeoJSONTextSequences = (geojson_object_list, filename) => {
+      const as_list = geojson_object_list.map((feature) => JSON.stringify(feature))
+
+
+      // @TODO make it work with list of items
+      // const blob = new Blob([JSON.stringify(geojson_object, null, 2)], {
+      // const blob = new Blob([as_list.join("␞\n")], {
+      const blob = new Blob([as_list.join(String.fromCharCode(30, 10))], {
+        type: 'application/geo+json-seq',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.geojsonl`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    const saveGeoJSONofActiveMemory = () => {
+      let result = {
+        "type": "FeatureCollection",
+        "_meta": {
+          "sources": [],
+          "import_filters": "",
+          "import_fields": "",
+          "active_filter_tags": "",
+        },
+        "features": []
+      }
+
+      // @TODO implement full download, not merely preview
+      WorkingInputFiles.forEach(function (item) {
+        result["_meta"]["sources"].push({
+          name: item["name"],
+          lastModified: item["lastModified"],
+          lastModifiedDate: item["lastModifiedDate"],
+          size: item["size"],
+        })
+      })
+
+      result["_meta"]["import_filters"] = document.getElementById("data_ex_filter").value
+      result["_meta"]["import_fields"] = document.getElementById("data_ex_fields_exporter").value
+      result["_meta"]["active_filter_tags"] = document.getElementById("filter_active_simple").value
+      result["_meta"]["active_filter_refence"] = document.getElementById("filter_active_latlon").value
+      result["_meta"]["active_filter_refence_distance"] = document.getElementById("filter_active_latlon_dist").value
+
+      SDMData.Main.forEach(function (item) {
+        result["features"].push(item)
+      })
+
+      // saveGeoJSON({ test: 'is passed' }, 'testJsonFile');
+      saveGeoJSON(result, 'osm-fm__active-memory(preview-only)');
+    };
+
+    const saveGeoJSONofMemory = (filename = 'osm-fm__working-memory', filesuffix = '.geojson') => {
+      let result = {
+        "type": "FeatureCollection",
+        "_meta": {
+          "sources": [],
+          "import_filters": "",
+          "import_fields": "",
+        },
+        "features": []
+      }
+
+      WorkingInputFiles.forEach(function (item) {
+        result["_meta"]["sources"].push({
+          name: item["name"],
+          lastModified: item["lastModified"],
+          lastModifiedDate: item["lastModifiedDate"],
+          size: item["size"],
+        })
+      })
+
+      result["_meta"]["import_filters"] = document.getElementById("data_ex_filter").value
+      result["_meta"]["import_fields"] = document.getElementById("data_ex_fields_exporter").value
+
+      SDMData.Main.forEach(function (item) {
+        result["features"].push(item)
+      })
+
+      // saveGeoJSON({ test: 'is passed' }, 'testJsonFile');
+      // saveGeoJSON(result, 'osm-fm__working-memory');
+
+      console.log('saveGeoJSONofMemory', result, filename, filesuffix, filesuffix === '.geojson', filesuffix === '.geojsonl')
+
+      if (filesuffix === '.geojson') {
+        console.log('saveGeoJSONofMemory todo saveGeoJSON', filesuffix)
+        saveGeoJSON(result, filename);
+      } else if (filesuffix === ".geojsonl") {
+        console.log('saveGeoJSONofMemory todo saveGeoJSONTextSequences', filesuffix)
+        saveGeoJSONTextSequences(result["features"], filename);
+      } else {
+        throw Error("saveGeoJSONofMemory err", filename, filesuffix)
+      }
+    };
+
+    const exportFile = () => {
+      const filename = document.querySelector("#export_filename").value
+      const filesuffix = document.querySelector("#export_fileext").innerText
+      const filetype = document.querySelector("input[type=radio][name=export_filetype]:checked").value
+      const content = document.querySelector("input[type=radio][name=export_content]:checked").value
+
+      // console.log("TODO exportFile", filename, filesuffix, filetype)
+
+      saveGeoJSONofMemory(filename, filesuffix)
+    }
+
+    // @TODO make geojson only for active filter
+
+    // 
+
+    function output_printer(collection, _param1, _param2) {
+      // let _maximum_displayed = 1000
+      let _maximum_displayed = SDMConf.Preview.text
+      let output = []
+      collection.forEach(function (item) {
+        // console.log('output_printer', item)
+        let __fid = item['__fid']
+        let __tid = item['__tid']
+        _maximum_displayed -= 1
+        if (_maximum_displayed >= 0) {
+          let item_group = []
+
+          if (item['_comment']) {
+            item_group.push(`// note: [${item['_comment']}]`)
+          }
+
+          item_group.push(`// [@fid=${__fid}; @tid=${__tid}] ${JSON.stringify(item['geometry'])}`)
+
+          for (const [key, value] of Object.entries(item['properties'])) {
+            item_group.push(`${key}=${value}`)
+          }
+          output.push(item_group.join('\n'))
+        }
+      })
+      return output.join('\n\n')
+    }
+
+    function parseGeoJSON(text) {
+      let parsed = JSON.parse(text)
+      return parsed['features']
+    }
+
+    function readFile(input) {
+      // if (input.files.length > 1) {
+      //   console.warn('No momento implementado apenas primiro arquivo. Ignorando demais')
+      // }
+      // let _data_ex_count_i = 0
+      var _data_ex_count_i = 0
+      // let _data_ex_count_t = 0
+      var _data_ex_count_t = 0
+      let filter_options = parse_options(data_ex_filter.value)
+      let fields_to_export = parse_options_simple(data_ex_fields_exporter.value)
+      const import_fields_anyifosm_nwr = document.getElementById("import_fields_anyifosm_nwr").checked
+      var examples = []
+      // let files_loaded = 0
+      var files_loaded = 0
+      let files_csv_total = 0
+      let files_csv_finished = 0
+      // let reader = null
+      // input.files.forEach(function (file) {
+      Array.from(input.files).forEach(function (file) {
+
+        // if (file.name.endsWith(".geojsonl")) {
+        //   console.error(`readFile ${file.name}: GeoJSONSeq/GeoJSONL not implemented yet`)
+        // }
+
+        // if (file.name.endsWith(".geojsonl")) {
+        //   console.error(`readFile ${file.name}: GeoJSONSeq/GeoJSONL not implemented yet`)
+        // }
+
+        if (file.size >= 2147483648 && !file.name.endsWith(".geojsonl")) {
+          console.warn(`readFile ${file.name} [${file.size}]: >2GB file, chunk parsing not implemented yet, may fail`)
+        }
+
+        // console.log('file', file)
+        // console.log('file', file.nam'e)
+        WorkingInputFiles.push(file)
+
+        //START
+        // const processIndividualFile = (
+        //   file, _data_ex_count_i, _data_ex_count_t, filter_options, fields_to_export, examples, files_loaded
+        // ) => {
+        function processIndividualFile(
+          file
+        ) {
+
+          // console.log('processIndividualFile', file, files_loaded)
+          // @TODO change to work with files over 2 GB
+          //       See https://stackoverflow.com/questions/73137555/filereader-domexception-unable-to-convert-blob-to-base64-string
+
+          // 43_RS.geojsonl (2.8GB )
+          // 6.456.747
+          // 6.455.418
+          //
+          // ~1300 linhas a menos
+          if (file.name.endsWith(".geojsonl")) {
+            console.log("Note: geojsonl still imperfect implementation")
+
+            let _last_part = ''
+            let _separator = null
+            let _current_parts = []
+            let _active_part = ''
+            let _skipped_chunks_parts = 0
+
+            let input_file_index = files_loaded + 1
+
+            let profile_times = {
+
+            }
+
+            // // 128 mb = 134,217,728 Bytes
+            // const queuingStrategy = new CountQueuingStrategy({
+            //   // highWaterMark: 1
+            //   highWaterMark: 10,
+            //   // size: 134217728
+            //   size : function size(chunk) {
+            //     return 134217728
+            //   }
+            // });
+
+            file
+              .stream()
+              .pipeThrough(new TextDecoderStream())
+              .pipeTo(new WritableStream({
+                start(controller) {
+                  profile_times[file.name] = new Date()
+                  console.log(`WritableStream start: ${file.name}`)
+                  // if (console.profile) {
+                  //   console.profile(`WritableStream${file.name}`)
+                  // }
+                },
+                write(textChunk) {
+                  let _active_stack = []
+                  let _geojson_string = ''
+                  // document.body.append(textChunk)
+
+                  // @TODO correct split would be:
+                  //       String.fromCharCode(30, 10)
+                  // if (textChunk.includes(String.fromCharCode(30))) {
+                  //   _current_parts = textChunk.split(String.fromCharCode(30))
+                  // } else if (textChunk.includes("\n")) {
+                  //   _current_parts = textChunk.split("\n")
+                  // } else {
+                  //   _current_parts = [textChunk]
+                  // }
+                  // RS + LF
+                  // https://www.rfc-editor.org/rfc/rfc8142
+                  if (textChunk.includes(String.fromCharCode(30, 10))) {
+                    _current_parts = textChunk.split(String.fromCharCode(30, 10))
+                  } else {
+                    _current_parts = [textChunk]
+                  }
+
+                  _current_parts = _current_parts.filter(Boolean)
+
+                  // console.log(_current_parts)
+
+                  while (_current_parts.length != 0) {
+                    if (_last_part != '') {
+                      _active_part = _last_part + _current_parts.shift()
+                      _last_part = []
+                    } else {
+                      _active_part = _last_part + _current_parts.shift().trim("\n")
+                    }
+                    _active_stack.push(_active_part)
+                  }
+
+                  while (_active_stack.length != 0) {
+                    _geojson_string = _active_stack.shift()
+                    _geojson_object = null
+                    try {
+                      _geojson_object = JSON.parse(_geojson_string);
+
+                      // Try to clean last as soon as theres a clean match
+                      _last_part = ''
+                    } catch (e) {
+                      // At end of chunk part is expected to sometimes have partial
+                      if (_active_stack.length === 0) {
+                        _active_part = _last_part + _geojson_string
+                      } else {
+                        _skipped_chunks_parts += 1
+                        // console.error(`fileReader ${file} error in the middle of chunks`, e, _geojson_string)
+                      }
+                    }
+
+                    if (_geojson_object !== null) {
+                      _data_ex_count_t += 1
+
+                      if (!(filter_options === null || filter(_geojson_object, filter_options))) {
+                        continue
+                      }
+
+                      if (SDMData.Reference.length !== 0) {
+                        match_score = filter_by_reference_on_import(_geojson_object, SDMConf.Reference)
+                        // console.log('__match_score', match_score, item3, SDMConf.Reference)
+                        if (match_score < 50) {
+                          continue
+                        }
+                      }
+                      _data_ex_count_i += 1
+                      SDMData.Main.push(select_attributes(_geojson_object, fields_to_export, input_file_index, _data_ex_count_i, import_fields_anyifosm_nwr))
+
+                      // // if (filter_options === null || filter(_geojson_object['properties'], filter_options)) {
+                      // if (filter_options === null || filter(_geojson_object, filter_options)) {
+                      //   _data_ex_count_i += 1
+                      //   SDMData.Main.push(select_attributes(_geojson_object, fields_to_export, input_file_index, _data_ex_count_i))
+                      // } else {
+                      //   // not matched
+                      // }
+                    }
+                  }
+
+                  // console.log(1, textChunk.length)
+                  // throw Error("stop at first chunk")
+                },
+                close(controller) {
+                  const t1 = profile_times[file.name]
+                  const t2 = new Date()
+                  const diff = humanDiff(t1, t2)
+                  console.log(`WritableStream end: ${file.name} took: ${diff}`)
+                  // if (console.profile) {
+                  //   console.profileEnd(`WritableStream${file.name}`)
+                  // }
+                },
+                // }, queuingStrategy))
+              }))
+
+            // @TODO check if here will work the fileloaded
+            // files_loaded += 1
+
+          } else if (file.name.endsWith(".csv") || file.name.endsWith(".tsv")) {
+            console.log("@TODO", file)
+            var input_file_index = files_loaded + 1
+
+            // @TODO: if the data contains typical fields for latitude/longitude
+            //        we use similar strategy to GEOJSON
+
+
+            let _papa_initialize = false
+            let _papa_to_geojson = false
+            let _papa_latlon = []
+            let _papa_wkt = false
+            let _papa_wkt_field = ''
+
+            files_csv_total += 1
+
+            // Papa.parse(bigFile, {
+            Papa.parse(file, {
+              worker: true,
+              // worker: false,
+              header: true,
+              step: function (row) {
+                // console.log("Row:", row.data);
+                _data_ex_count_i += 1
+
+                // tabular input more likely to need this
+                row.data = _import_keys_renamer(row.data)
+                row.data = _import_values_processor(row.data)
+
+                if (_papa_initialize === false) {
+                  _papa_initialize = true
+                  _papa_latlon = get_field_latnon_if_exist(Object.keys(row.data))
+                  _papa_wkt = get_field_wkt_if_exist(row.data)
+                  // console.log('---', _papa_latlon, _papa_wkt, Object.keys(row.data))
+                  if (_papa_latlon !== false || _papa_wkt !== false) {
+                    _papa_to_geojson = true
+                  }
+                }
+
+                let _lat = 0.0
+                let _lon = 0.0
+                let _latlon = []
+                if (_papa_to_geojson) {
+                  if (_papa_latlon !== false) {
+                    _lat = parseFloat(row.data[_papa_latlon[0]])
+                    _lon = parseFloat(row.data[_papa_latlon[1]])
+                  } else {
+                    _latlon = get_field_latnon_if_wkt_exist(row.data)
+                    // console.log('..._latlon', _latlon, row.data)
+                    if (_latlon !== false) {
+                      // swaped?
+                      _lat = parseFloat(_latlon[1])
+                      _lon = parseFloat(_latlon[0])
+                    }
+                  }
+                }
+
+                let active_item = select_attributes({
+                  // "geometry": {
+                  "geometry": {
+                    "type": "Point",
+                    // "coordinates": [0.0, 0.0]
+                    "coordinates": [_lon, _lat]
+                  },
+                  "properties": row.data,
+                  "type": "Feature"
+                }, fields_to_export, input_file_index, _data_ex_count_i)
+
+                // console.log(active_item)
+
+                if (!(filter_options === null || filter(active_item, filter_options))) {
+                  return true
+                }
+
+                if (SDMData.Reference.length !== 0) {
+                  match_score = filter_by_reference_on_import(active_item, SDMConf.Reference)
+                  // console.log('__match_score', match_score, item3, SDMConf.Reference)
+                  if (match_score < 50) {
+                    return true
+                  }
+                }
+
+                // const _data_ex_count_t_local = _data_ex_count_t
+                if (_papa_to_geojson) {
+                  SDMData.Main.push(active_item)
+                } else {
+                  SDMData.Auxiliary.push(active_item)
+                }
+
+
+              },
+              complete: function () {
+                console.log("CSV import for file finished", file)
+                // SDMData.AuxiliaryPreview = SDMData.Auxiliary
+                files_csv_finished += 1
+              }
+            });
+          } else {
+
+            let reader = new FileReader();
+            reader.readAsText(file);
+            // console.log('files_loaded', files_loaded, )
+            var input_file_index = files_loaded + 1
+            let match_score = 0
+
+
+            reader.onload = function () {
+              // console.log('loaded this', this)
+
+              let original_data = JSON.parse(reader.result)
+
+              for (let index = 0; index < original_data['features'].length; index++) {
+                const item3 = original_data['features'][index];
+                _data_ex_count_t += 1
+
+                if (!(filter_options === null || filter(item3, filter_options))) {
+                  continue
+                }
+
+                if (SDMData.Reference.length !== 0) {
+                  match_score = filter_by_reference_on_import(item3, SDMConf.Reference)
+                  // console.log('__match_score', match_score, item3, SDMConf.Reference)
+                  if (match_score < 50) {
+                    continue
+                  }
+                }
+
+                // if (!(SDMData.Reference.length === 0 || filter_by_reference_on_import(item3, SDMConf.Reference))) {
+                //   continue
+                // }
+                _data_ex_count_i += 1
+                SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
+
+                // if ((filter_options === null || filter(item3, filter_options)) &&
+                //   (SDMData.Reference.length === 0 || filter_by_reference_on_import(item3, SDMConf.Reference))) {
+                //   _data_ex_count_i += 1
+                //   SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
+                // } else {
+                //   // not matched
+                // }
+              }
+
+
+              // original_data['features'].forEach(function (item) {
+              //   _data_ex_count_t += 1
+              //   // if (filter_options === null || filter(item['properties'], filter_options)) {
+              //   if ((filter_options === null || filter(item, filter_options)) &&
+              //     (SDMData.Reference.length === 0 || filter_by_reference_on_import(item, SDMConf.Reference))) {
+              //     _data_ex_count_i += 1
+              //     SDMData.Main.push(select_attributes(item, fields_to_export, input_file_index, _data_ex_count_i))
+              //   } else {
+              //     // not matched
+              //   }
+              // })
+              examples.push(original_data['features'][0])
+
+              // files_loaded += 1
+            }
+            // files_loaded += 1
+            reader.onerror = function () {
+              console.log(reader.error);
+              // files_loaded += 1
+            };
+          };
+
+
+          // END
+        }
+
+        // console.log('...processIndividualFile')
+
+        // processIndividualFile(
+        //   file, _data_ex_count_i, _data_ex_count_t, filter_options, fields_to_export, examples
+        // )
+        processIndividualFile(
+          file
+        )
+        files_loaded += 1
+
+      })
+
+      let existCondition = setInterval(function () {
+
+        // console.log('>>>>>>>> existCondition <<<<<<<<')
+        if (files_csv_finished !== files_csv_total) {
+          console.log('files_csv_finished !== files_csv_total. Waiting...')
+
+        } else if (input.files.length == files_loaded) {
+          // console.log("input.files.length == files_loaded");
+          clearInterval(existCondition);
+
+          // doTheRestOfTheStuff(parameters);
+          // console.log('readFile', { 'loaded': _data_ex_count_i, 'total': _data_ex_count_t, 'filter_options': filter_options, 'fields_to_export': fields_to_export, 'examples': examples })
+          // data_ex_count_t.textContent = _data_ex_count_t
+          data_ex_count_t.textContent = (new Intl.NumberFormat(locale_number).format(_data_ex_count_t))
+          // data_ex_count_i.textContent = _data_ex_count_i
+          data_ex_count_i.textContent = (new Intl.NumberFormat(locale_number).format(_data_ex_count_i))
+
+          if (_data_ex_count_i <= SDMConf.Preview.text) {
+            // data_active_count.textContent = _data_ex_count_i
+            data_active_count.textContent = new Intl.NumberFormat(locale_number).format(_data_ex_count_i)
+          } else {
+            // data_active_count.textContent = SDMConf.Preview.text + ' (' + _data_ex_count_i + ')'
+            data_active_count.textContent = (new Intl.NumberFormat(locale_number).format(SDMConf.Preview.text)) + ' (' + (new Intl.NumberFormat(locale_number).format(_data_ex_count_i)) + ')'
+          }
+          // output.textContent = output_printer(SDMData.Main)
+          SDMData.MainPreview = SDMData.Main.slice(0, SDMConf.Preview.map)
+          // console.log('WorkingInputFiles', WorkingInputFiles)
+
+          ui_datasets_list(WorkingInputFiles)
+
+          update_filter_delayed()
+
+          // Disable the file input (user will need to re-load if needs to change)
+          document.querySelector("#external-data-file").disabled = true
+          document.querySelector("#data_ex_fields_exporter").disabled = true
+          document.querySelector("#data_ex_filter").disabled = true
+          document.querySelector("#import_reffile").disabled = true
+          document.querySelector("#import_reffile_dist").disabled = true
+          document.querySelector("#import_reffile_rules").disabled = true
+          // update_map()
+
+          // Hide extra column, since it will have no data to show
+          if (SDMData.Auxiliary.length === 0) {
+            document.querySelector("#ui_text_nopos_preview").checked = false
+            //update_map()
+            update_ui()
+          }
+
+        } else {
+          console.log('waiting input.files.length == files_loaded', input.files.length, files_loaded)
+        }
+      }, 500); // check every 500ms
+
+    } // function readFile(input) {
+
+    function readFileReference(input) {
+      const import_reffile_dist = parseInt(document.querySelector("#import_reffile_dist").value)
+      const import_reffile_dist2 = parseInt(document.querySelector("#import_reffile_dist2").value)
+      const import_reffile_rules = parse_options_simple(document.querySelector("#import_reffile_rules").value, false)
+      const import_reffile_rules_missing = Boolean(document.querySelector("#import_reffile_rules_missing").checked)
+      console.log(input, import_reffile_dist, import_reffile_rules)
+
+      SDMConf.Reference = {
+        "distance": import_reffile_dist,
+        "distance2": import_reffile_dist2,
+        "rules": import_reffile_rules,
+        "allow_missing_ref": import_reffile_rules_missing
+      }
+
+      if (import_reffile_rules && import_reffile_rules.length > 0) {
+        SDMData.ReferenceStats.ref_items_no_tags = new Array(import_reffile_rules.length).fill(0);
+        SDMData.ReferenceStats.ref_items_no_tags = new Array(import_reffile_rules.length).fill(0);
+      }
+
+      var filesref_loaded = 0
+      // SDMData.Reference
+      Array.from(input.files).forEach(function (file) {
+
+        if (file.name.endsWith(".geojsonl")) {
+          console.warn("Note: geojsonl not implented for reference files")
+        }
+
+        function processIndividualRefFile(
+          file
+        ) {
+          let reader = new FileReader();
+          reader.readAsText(file);
+          var input_file_index = filesref_loaded + 1
+
+          reader.onload = function () {
+            // console.log('loaded this', this)
+
+            let original_data = JSON.parse(reader.result)
+
+            original_data['features'].forEach(function (item, index) {
+              if ("__fid" in item) {
+                delete item["__fid"]
+              }
+              if ("__tid" in item) {
+                delete item["__tid"]
+              }
+              item["__rid"] = input_file_index
+              item["__rtid"] = index + 1
+              SDMData.Reference.push(item)
+            })
+            filesref_loaded += 1
+          }
+          reader.onerror = function () {
+            console.log(reader.error);
+            // files_loaded += 1
+            filesref_loaded += 1
+          };
+        }
+
+        processIndividualRefFile(
+          file
+        )
+        // filesref_loaded += 1
+      })
+
+
+      let existConditionRef = setInterval(function () {
+
+        // console.log('>>>>>>>> existCondition <<<<<<<<')
+        if (input.files.length == filesref_loaded) {
+          // console.log("input.files.length == files_loaded");
+          clearInterval(existConditionRef);
+          // update_map()
+
+          console.log('SDMData.Reference done', SDMData.Reference)
+
+          document.querySelector("#import_reffile").disabled = true
+          document.querySelector("#import_reffile_dist").disabled = true
+          document.querySelector("#import_reffile_dist2").disabled = true
+          document.querySelector("#import_reffile_rules").disabled = true
+
+          SDMData.ReferenceStats.ref_files = filesref_loaded
+          SDMData.ReferenceStats.ref_items = SDMData.Reference.length
+
+          SDMData.Reference.forEach(function (_item, index) {
+            let have_pos = false
+            let have_tags = false
+            let one_lat = 0
+            let one_lon = 0
+            // https://datatracker.ietf.org/doc/html/rfc7946
+            if (_item["geometry"]["coordinates"]) {
+              let gtype = _item["geometry"]["type"]
+              let pos = _item["geometry"]["coordinates"]
+              if (Array.isArray(pos) && !Array.isArray(pos[0]) && pos.length >= 2) {
+                one_lat = pos[0]
+                one_lon = pos[1]
+              } else if (Array.isArray(pos) && Array.isArray(pos[0]) && pos[0].length >= 2) {
+                one_lat = pos[0][0]
+                one_lon = pos[0][1]
+              } else if (Array.isArray(pos) && Array.isArray(pos[0]) && Array.isArray(pos[0][0]) && pos[0][0].length >= 2) {
+                one_lat = pos[0][0][0]
+                one_lon = pos[0][0][1]
+              }
+              if (!!one_lat && !!one_lon) {
+                have_pos = true
+              }
+            }
+
+            if (SDMConf.Reference.rules && SDMConf.Reference.rules.length) {
+              let tags = []
+              if (_item.hasOwnProperty("properties")) {
+                tags = Object.keys(_item["properties"])
+              }
+
+              SDMConf.Reference.rules.forEach(function (_rule, index) {
+                // if (!(tags.indexOf(_item) > -1)) {
+                let at_least_one_match = false
+                tags.forEach(function (prop_key) {
+                  if (prop_key === _rule) {
+                    at_least_one_match = true
+                  }
+                })
+                if (!at_least_one_match) {
+                  SDMData.ReferenceStats.ref_items_no_tags[index] += 1
+                }
+
+              })
+            }
+
+            if (!have_pos) {
+              SDMData.ReferenceStats.ref_items_no_pos += 1
+            }
+          })
+
+          // https://stackoverflow.com/a/12075970/894546
+          // Object.defineProperty(RegExp.prototype, "toJSON", {
+          //   value: RegExp.prototype.toString
+          // });
+          document.querySelector("#import_reffile_output").innerHTML = JSON.stringify(
+            { "statistics": SDMData.ReferenceStats, "options": SDMConf.Reference }, null, 4
+          )
+
+        } else {
+          console.log('waiting input.files.length == filesref_loaded', input.files.length, filesref_loaded)
+        }
+      }, 250); // check every 250ms
+
+    }
+
+    function _update_filter_delayed_opt(text) {
+      let parsed_general = null
+      let parsed_specific = null
+      if (text.indexOf('=') === -1) {
+        parsed_general = parse_options_simple(text)
+        // console.log('_update_filter_delayed_opt simple', text, parsed)
+      } else {
+        parsed_general = parse_options(text)
+        // console.log('_update_filter_delayed_opt full', text, parsed)
+      }
+      parsed_specific = parse_options_specific(text)
+      return [parsed_general, parsed_specific]
+    }
+
+    //let debounceTimer;
+    const debounce = (callback, time) => {
+      // window.clearTimeout(debounceTimer);
+      window.clearTimeout(debounceTimerFilters);
+      // debounceTimer = window.setTimeout(callback, time);
+      debounceTimerFilters = window.setTimeout(callback, time);
+    }
+
+    function update_filter_delayed() {
+      debounceAttemptedCount += 1
+      // console.log('update_filter_delayed', debounceAttemptedCount, (new Date()))
+      debounce(update_filter_imediate, 100)
+    }
+
+    function update_filter_imediate() {
+
+      // console.log('update_filter_imediateZ  >>>>', (new Date()))
+      debounceRealCount += 1
+      // console.log('update_filter_imediate Calls : ' + debounceRealCount);
+
+      // console.log('update_filter_imediate ___ -2')
+
+      // console.log('update_filter_delayed started')
+      let items_to_display = []
+      // SDMData.MainPreview = []
+      let _data_active_count = 0
+      // let parsed_1 = _update_filter_delayed_opt(filter_active_simple.value)
+
+      // try {
+      //   const _filter_parts = _update_filter_delayed_opt(filter_active_simple.value)
+      // } catch (error) {
+      //   console.error(error)
+
+      // }
+      const _filter_parts = _update_filter_delayed_opt(filter_active_simple.value)
+
+      // console.log('update_filter_imediate ___ -1', _filter_parts)
+      // const _filter_parts = _update_filter_delayed_opt(filter_active_simple.value)
+
+      const parsed_general = _filter_parts[0]
+      const parsed_specific = _filter_parts[1]
+      // console.log('update_filter_imediate ___ 0')
+      //let fids_list = null
+      // let fids_list = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).forEach((element => console.log(element.dataset.fid)))
+      // console.log('compiled regex filter', parsed_1)
+
+      if (hide_fid >= 0) {
+        // Prefill hide_fid_affected with zeroes
+        hide_fid_affected = new Array(WorkingInputFiles.length).fill(0);
+      }
+
+      // console.log('refpoint_distance', refpoint_distance)
+
+      // console.log('update_filter_imediate ___ 1')
+
+      // items_to_display = []
+      SDMData.MainPreview = []
+
+      // **** Data with coordinates ***
+      for (let index = 0; index < SDMData.Main.length; index++) {
+        const item = SDMData.Main[index];
+
+        // Disabled files filter
+        if (!filter_in_fids(item, enabled_files)) {
+          continue
+        }
+
+        // tagging filter
+        if (!filter(item, parsed_general, parsed_specific)) {
+          continue
+        }
+        // // filter by distance
+        if (!(filter_by_dist(item['geometry'], refpoint_latlon, refpoint_distance))) {
+          continue
+        }
+        // // Use a reference dataset to filter elements from another dataset. CPU intensive
+        if (!filter_substract_file(item, hide_fid, hide_fid_dist, hide_fid_keys)) {
+          continue
+        }
+
+        _data_active_count += 1
+
+        if (SDMData.MainPreview.length <= SDMConf.Preview.map) {
+          SDMData.MainPreview.push(item)
+        } else if (focus_fid === item["__fid"] && SDMData.MainPreview.length <= (2 * SDMConf.Preview.map)) {
+          // If one dataset is focused, we allow up to 2 times the preview size
+          // this could help when have two very large datasets, so the smaller
+          // one does not keep being removed
+          SDMData.MainPreview.push(item)
+        }
+      }
+      // items_to_display = []
+      SDMData.AuxiliaryPreview = []
+
+      // **** Data with coordinates ***
+      for (let index = 0; index < SDMData.Auxiliary.length; index++) {
+        const item = SDMData.Auxiliary[index];
+
+        // Disabled files filter
+        if (!filter_in_fids(item, enabled_files)) {
+          continue
+        }
+
+        // tagging filter
+        if (!filter(item, parsed_general, parsed_specific)) {
+          continue
+        }
+        // // filter by distance
+        if (!(filter_by_dist(item['geometry'], refpoint_latlon, refpoint_distance))) {
+          continue
+        }
+        // // Use a reference dataset to filter elements from another dataset. CPU intensive
+        if (!filter_substract_file(item, hide_fid, hide_fid_dist, hide_fid_keys)) {
+          continue
+        }
+
+        _data_active_count += 1
+
+        if (SDMData.AuxiliaryPreview.length <= SDMConf.Preview.map) {
+          SDMData.AuxiliaryPreview.push(item)
+        } else if (focus_fid === item["__fid"] && SDMData.AuxiliaryPreview.length <= (2 * SDMConf.Preview.map)) {
+          // If one dataset is focused, we allow up to 2 times the preview size
+          // this could help when have two very large datasets, so the smaller
+          // one does not keep being removed
+          SDMData.AuxiliaryPreview.push(item)
+        }
+      }
+
+      // Data without coordinates
+      // @TODO
+
+      // SDMData.MainPreview = items_to_display
+
+      // console.log('update_filter_imediate ___ 2')
+      // data_ex_count_t.textContent = _data_ex_count_t
+      // data_active_count.textContent = _data_active_count
+      // data_active_count.textContent = new Intl.NumberFormat(locale_number).format(_data_active_count)
+      data_active_count.textContent = (new Intl.NumberFormat(locale_number).format(SDMData.MainPreview.length)) + ' (' + (new Intl.NumberFormat(locale_number).format(_data_active_count)) + ')'
+      // output.textContent = output_printer(items_to_display)
+      // output.textContent = output_printer(items_to_display)
+
+      // console.log('SDMData.MainPreview', SDMData.MainPreview)
+      //SDMData.MainPreview = items_to_display.slice(0, SDMConf.Preview.map)
+
+      if (hide_fid >= 0) {
+        // Prefill hide_fid_affected with zeroes
+        document.querySelector("#hide_fid_output_log").innerHTML = JSON.stringify(hide_fid_affected)
+        // hide_fid_affected = new Array(WorkingInputFiles.length).fill(0);
+      } else {
+        document.querySelector("#hide_fid_output_log").innerHTML = ''
+      }
+
+      if (document.getElementById('ui_text_preview').checked) {
+        output.value = output_printer(SDMData.MainPreview)
+      }
+
+      if (document.getElementById('ui_text_nopos_preview').checked) {
+        output2.value = output_printer(SDMData.AuxiliaryPreview)
+      }
+
+      if (document.getElementById('ui_map_preview').checked) {
+        update_map()
+      }
+
+      // SDMData.MainPreview = items_to_display
+
+      // let freeBusLayer = L.geoJSON(SDMData.MainPreview).addTo(map);
+      // output.textContent = output_printer_map(items_to_display)
+    }
+
+
+
+    filter_active_simple.addEventListener('keyup', function (ev) {
+      // console.log(ev)
+      update_filter_delayed()
+      // console.log(filter_active_simple.value)
+    })
+
+    const loaderExternal = document.getElementById("uploadInput");
+    const loaderExternalAct = document.getElementById("external-data-btn");
+    // const map = L.map('map').setView([39.74739, -105], 13);
+
+
+    const tiles_osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      // }).addTo(map);
+    });
+
+    const tiles_openTopoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+    });
+
+    const tiles_bdgex = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+      // layers: 'ieders_mi290_portao'
+      layers: 'ctmmultiescalas_mercator',
+      // attribution: 'https://bdgex.eb.mil.br/',
+      attribution: '<a target="_blank" href="https://bdgex.eb.mil.br/">Cartas Topográficas do Exército Brasileiro</a>',
+      maxZoom: 20
+    })
+
+    // @see Bing https://github.com/shramov/leaflet-plugins/blob/master/layer/tile/Bing.js
+    /*
+    // const BingLayer = L.TileLayer.extend({
+    L.BingLayer = L.TileLayer.extend({
+      options: {
+        imagerySet: 'Aerial', // to be changed on next major version!!
+        culture: '',
+        style: '',
+        // https://blogs.bing.com/maps/2015/02/12/high-ppi-maps-now-available-in-the-bing-maps-ajax-control
+        // not documented in REST API docs, but working
+        // warning: deprecated imagery sets may not support some values (depending also on zoom level)
+        retinaDpi: 'd2',
+
+        attribution: 'Bing',
+        minZoom: 1,
+        maxZoom: 21
+        // Actual `maxZoom` value may be less, depending on imagery set / coverage area
+        // - 19~20 for all 'Aerial*'
+        // - 20 for 'Road' (Deprecated)
+      },
+      getTileUrl: function (coords) {
+        var quadkey = this.toQuadKey(coords.x, coords.y, coords.z)
+        var url = L.Util.template(this._url, {
+          q: quadkey,
+          s: this._getSubdomain(coords)
+        })
+        if (typeof this.options.style === 'string') {
+          url += '&st=' + this.options.style
+        }
+        return url
+      },
+      toQuadKey: function (x, y, z) {
+        var index = ''
+        for (var i = z; i > 0; i--) {
+          var b = 0
+          var mask = 1 << (i - 1)
+          if ((x & mask) !== 0) b++
+          if ((y & mask) !== 0) b += 2
+          index += b.toString()
+        }
+        return index
+      },
+      _makeApiUrl: function (restApi, resourcePath, query) {
+        var baseAPIparams = {
+          version: 'v1',
+          restApi: restApi,
+          resourcePath: resourcePath
+        };
+        query = L.extend({
+          // errorDetail: true, // seems no effect
+          key: this.options.key
+        }, query);
+
+        // https://docs.microsoft.com/en-us/bingmaps/rest-services/common-parameters-and-types/base-url-structure
+        var template = 'https://dev.virtualearth.net/REST/{version}/{restApi}/{resourcePath}'; // ?queryParameters&key=BingMapsKey
+        return L.Util.template(template, baseAPIparams) + L.Util.getParamString(query);
+      },
+
+    })
+
+    const tiles_bing = L.BingLayer(L.extend({ imagerySet: "Aerial" }, {
+      key: "AsnE92lUJeuwM3avPQJx46w99V5O9YIoSFm4J8DE4Q8cIO-5oxj9-0QY94RLVg1K",
+      detectRetina: true
+    }));
+    */
+
+
+    const overlay_bdgex_hidrigrafia = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+      // layers: 'ieders_mi290_portao'
+      layers: 'Multiescala_Hidrografia',
+      format: 'image/png',
+      transparent: true,
+      tiled: true,
+      // srs: 'EPSG:4326',
+      crs: L.CRS.EPSG4326,
+      // attribution: 'https://bdgex.eb.mil.br/',
+      attribution: 'Camada de hidrografia por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
+      // maxNativeZoom: 17,
+      maxNativeZoom: 16,
+      maxZoom: 20
+    })
+
+    // https://bdgex.eb.mil.br/mapcache?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image%2Fpng&TRANSPARENT=true&LAYERS=Multiescala_Relevo&TILED=true&WIDTH=256&HEIGHT=256&SRS=EPSG%3A4326&STYLES=&BBOX=-51.34506483742349%2C-29.700926167632637%2C-51.32474623462002%2C-29.680607564829167
+    const overlay_bdgex_relevo = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+      // layers: 'ieders_mi290_portao'
+      layers: 'Multiescala_Relevo',
+      format: 'image/png',
+      transparent: true,
+      tiled: true,
+      // srs: 'EPSG:4326',
+      crs: L.CRS.EPSG4326,
+      // attribution: 'https://bdgex.eb.mil.br/',
+      attribution: 'Camada de relevo por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
+      // maxNativeZoom: 17,
+      maxNativeZoom: 16,
+      maxZoom: 20
+    })
+
+    const baseLayers = {
+      'OpenStreetMap': tiles_osm,
+      'OpenTopoMap': tiles_openTopoMap,
+      'Cartas Topográficas do Exército Brasileiro': tiles_bdgex,
+      // 'Bing': BingLayer
+      // 'Bing': L.BingLayer
+      // 'Bing': tiles_bing
+    };
+
+    const overlays = {
+      'Hidrografia - Exército Brasileiro': overlay_bdgex_hidrigrafia,
+      'Relevo - Exército Brasileiro': overlay_bdgex_relevo,
+    };
+
+    const map = L.map('map', {
+      center: [-14.9362, -51.8455],
+      zoom: 4,
+      //layers: 
+      layers: [tiles_osm]
+    });
+
+    const markers = L.markerClusterGroup(
+      {
+        maxClusterRadius: 10 // Default: 80
+      }
+    );
+
+    // const layerControl = L.control.layers(baseLayers, overlays).addTo(map);
+    const layerControl = L.control.layers(baseLayers, overlays).addTo(map);
+
+    //const map = L.map('map').setView([-14.936266441326534, -51.845590165709055], 4);
+
+    // const render_active = document.getElementById("render_active");
+
+    function encodeParamsforJOSM(item_props) {
+      if (!item_props) {
+        return ''
+      }
+      // const ignore = [
+      //   /^@id$/
+      // ]
+      const ignore = [
+        "@id"
+      ]
+      let result = []
+      for (const key in item_props) {
+        if (ignore.indexOf(key) === -1) {
+          if (Object.hasOwnProperty.call(item_props, key)) {
+            const element = item_props[key];
+            //result.push(encodeURIComponent(key) + "=" + encodeURIComponent(element))
+            // result.push(`${key}=${element}`.replace(" ", "+"))
+            result.push(`${key}=${element}`)
+            //result.push(encodeURIComponent(`${key}=${element}`))
+            //result.push(encodeURIComponent(`${key}=${element}`))
+          }
+        }
+      }
+
+      // return result.join("|")
+      return encodeURIComponent(result.join("|"))
+    }
+
+    function onEachFeatureJOSMClick(ev) {
+      ev.stopPropagation();
+      ev.preventDefault();
+      const myRequest = new Request(ev.target.href);
+      fetch(myRequest)
+        .then(function (response) {
+          console.log(`JSOM Remote: ${ev.target.href}`);
+          //console.log(response.blob());
+        })
+    }
+
+    function onEachFeature(feature, layer) {
+      let title = ''
+      let item_group = []
+      let output = []
+
+      // console.log('feature', feature)
+
+      if (feature.properties) {
+
+        // isso aqui deveria ser o popup
+        if (feature.properties.name) {
+          layer.bindTooltip(feature.properties.name);
+        }
+
+        // if (feature["geometry"]["type"] == "Point") {
+        if (feature["geometry"]["type"] && feature["properties"]) {
+          let _lon = parseFloat(feature["geometry"]["coordinates"][0])
+          let _lat = parseFloat(feature["geometry"]["coordinates"][1])
+          let _zoom = 17
+
+          let _ed_id_extras = ''
+          let _ed_josm_extras = ''
+          //let _ed_josm_operation_1 = 'load_and_zoom'
+          let _ed_josm_tags_1 = ''
+          let _ed_l0_nwr = ''
+
+          if (feature["properties"] && "@id" in feature["properties"] &&
+            /^(node\/|way\/|relation\/)-?\d+/.test(feature["properties"]["@id"])
+          ) {
+            _ed_id_extras = '&' + feature['properties']["@id"].replace("/", "=")
+            _ed_josm_extras = '&select=' + feature['properties']["@id"].replace("/", "")
+            //_ed_josm_operation_1 = 'load_and_zoom'
+            _ed_l0_nwr = feature['properties']["@id"]
+
+          }
+
+          // https://level0.osmz.ru/?url=node/240095754
+
+          const josm_params = encodeParamsforJOSM(feature['properties'])
+          if (josm_params) {
+            _ed_josm_tags_1 = "&addtags=" + josm_params
+          }
+
+          let _links = `<a href="https://osm.org/#map=${_zoom}/${_lat}/${_lon}" target="_blank">OSM</a>`
+          _links = _links + ` | <a href="https://osm.org/edit#map=${_zoom}/${_lat}/${_lon}&photo_overlay=streetside,mapillary,kartaview${_ed_id_extras}" target="_blank">iD</a>`
+          // _links = _links + ` | <a href="http://localhost:8111/${_ed_josm_operation_1}?left=${_lon - 0.0005}&right=${_lon + 0.0005}&top=${_lat + 0.0005}&bottom=${_lat - 0.0005}${_ed_josm_extras}${_ed_josm_tags_1}" target="_blank" onclick=onEachFeatureJOSMClick(event)>JOSM<sup>z</sup></a>`
+          _links = _links + ` | <a href="http://localhost:8111/load_and_zoom?left=${_lon - 0.005}&right=${_lon + 0.005}&top=${_lat + 0.005}&bottom=${_lat - 0.005}${_ed_josm_extras}" target="_blank" onclick=onEachFeatureJOSMClick(event)>JOSM<sup>z</sup></a>`
+          _links = _links + ` | <a href="http://localhost:8111/add_node?lat=${_lat}&lon=${_lon}${_ed_josm_tags_1}" target="_blank" onclick=onEachFeatureJOSMClick(event)>JOSM<sup>n</sup></a>`
+
+          if (_ed_l0_nwr) {
+            _links = _links + ` | <a href="https://level0.osmz.ru/?url=${_ed_l0_nwr}" target="_blank">level0</a>`
+          }
+
+          // http://localhost:8111/zoom?left=8.19&right=8.20&top=48.605&bottom=48.590
+
+          //_links = _links + `| <a href="https://osm.org/#map=${_zoom}/${_lon}/${_lat}" target="_blank">OSM</a>`
+          item_group.push(`// [@fid=${feature["__fid"]}; @tid=${feature["__tid"]}] // ${_links}`)
+        } else {
+          item_group.push(`// [@fid=${feature["__fid"]}; @tid=${feature["__tid"]}]`)
+        }
+
+        for (const [key, value] of Object.entries(feature['properties'])) {
+          if (key == "@id" && (value.startsWith("node/") || value.startsWith("way/") || value.startsWith("relation/"))) {
+            item_group.push(`${key}=<a href="https://osm.org/${value}" target="_blank">${value}</a>`)
+          } else if (key.includes("wikidata") && (value.startsWith("Q") || value.startsWith("P"))) {
+            item_group.push(`${key}=<a href="https://www.wikidata.org/wiki/${value}" target="_blank">${value}</a>`)
+          } else {
+            item_group.push(`${key}=${value}`)
+          }
+        }
+        // output.push(item_group.join('\n'))
+
+        // if (feature.properties.name) {
+        //   // layer.bindPopup(feature.properties.name);
+        //   // layer.bindPopup(output.join('\n\n'));
+        //   layer.bindPopup(item_group.join('<br>'));
+        // }
+        layer.bindPopup(item_group.join('<br>'));
+      }
+
+      // // does this feature have a property named popupContent?
+      // if (feature.properties && feature.properties.popupContent) {
+      //     layer.bindPopup(feature.properties.popupContent);
+      // }
+    }
+
+
+    const update_map = function () {
+
+      map.eachLayer((layer) => {
+        if (layer['_latlng'] != undefined)
+          layer.remove();
+      });
+
+      // var markers = L.markerClusterGroup(
+      //   {
+      //     maxClusterRadius: 10 // Default: 80
+      //   }
+      // );
+      markers.clearLayers();
+
+      //console.log('update_map', WorkingInputFiles)
+
+      const _baseurl_icons = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-'
+
+      const LeafIcon = L.Icon.extend({
+        options: {
+          // iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+          iconUrl: _baseurl_icons + 'blue.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41]
+        }
+      });
+
+
+      const blueIcon = new LeafIcon({ iconUrl: _baseurl_icons + 'blue.png' });
+      const greenIcon = new LeafIcon({ iconUrl: _baseurl_icons + 'green.png' });
+      const goldIcon = new LeafIcon({ iconUrl: _baseurl_icons + 'gold.png' });
+      const orangeIcon = new LeafIcon({ iconUrl: _baseurl_icons + 'orange.png' });
+      const redIcon = new LeafIcon({ iconUrl: _baseurl_icons + 'red.png' });
+      const yellowIcon = new LeafIcon({ iconUrl: _baseurl_icons + 'yellow.png' });
+      const violetIcon = new LeafIcon({ iconUrl: _baseurl_icons + 'violet.png' });
+      const greyIcon = new LeafIcon({ iconUrl: _baseurl_icons + 'grey.png' });
+      const blackIcon = new LeafIcon({ iconUrl: _baseurl_icons + 'black.png' });
+      const list_icons = [
+        blueIcon, greenIcon, goldIcon, orangeIcon, redIcon, yellowIcon, violetIcon, greyIcon, blackIcon
+      ]
+
+      const LeafIconFocus = L.Icon.extend({
+        options: {
+          // iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+          iconUrl: _baseurl_icons + 'blue.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+          className: "pin-focus"
+        }
+      });
+
+      const blueIconFocus = new LeafIconFocus({ iconUrl: _baseurl_icons + 'blue.png' });
+      const greenIconFocus = new LeafIconFocus({ iconUrl: _baseurl_icons + 'green.png' });
+      const goldIconFocus = new LeafIconFocus({ iconUrl: _baseurl_icons + 'gold.png' });
+      const orangeIconFocus = new LeafIconFocus({ iconUrl: _baseurl_icons + 'orange.png' });
+      const redIconFocus = new LeafIconFocus({ iconUrl: _baseurl_icons + 'red.png' });
+      const yellowIconFocus = new LeafIconFocus({ iconUrl: _baseurl_icons + 'yellow.png' });
+      const violetIconFocus = new LeafIconFocus({ iconUrl: _baseurl_icons + 'violet.png' });
+      const greyIconFocus = new LeafIconFocus({ iconUrl: _baseurl_icons + 'grey.png' });
+      const blackIconFocus = new LeafIconFocus({ iconUrl: _baseurl_icons + 'black.png' });
+      const list_iconsFocus = [
+        blueIconFocus, greenIconFocus, goldIconFocus, orangeIconFocus, redIconFocus, yellowIconFocus, violetIconFocus, greyIconFocus, blackIconFocus
+      ]
+
+      let geoJsonLayer_cluster = []
+      // for (const [key, value] of Object.entries(WorkingInputFiles)) {
+      //   // console.log(`${key}: ${value}`);
+      //   let selection = []
+      //   SDMData.MainPreview.forEach(function (item) {
+      //     if (item["__fid"] == key) {
+      //       selection.push(item)
+      //     }
+      //   })
+
+      for (const selection of SDMData.MainPreview) {
+
+        // console.log('selection', selection)
+
+        // let icon = L.divIcon({
+        //   className: 'fid-' + key
+        // })
+        // var greenIcon = new L.Icon({
+        //   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+        //   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+        //   iconSize: [25, 41],
+        //   iconAnchor: [12, 41],
+        //   popupAnchor: [1, -34],
+        //   shadowSize: [41, 41]
+        // });
+
+
+        function createMarker(feature, latlng) {
+          const modulo = feature['__fid'] % list_icons.length
+          // let selected_group = 
+          // console.log('modulo', modulo, list_icons[modulo])
+          // return L.marker(latlng, { icon: list_icons[modulo] });
+          // return L.marker(latlng, { icon: greenIcon });
+
+          if (focus_fid === feature['__fid']) {
+            return L.marker(latlng, { icon: list_iconsFocus[modulo] });
+          } else {
+            return L.marker(latlng, { icon: list_icons[modulo] });
+          }
+        }
+
+        var teste = geoJsonLayer_cluster.push(L.geoJSON(selection, {
+          onEachFeature: onEachFeature,
+          pointToLayer: createMarker,
+          //icon: icon,
+          //style: {className: 'fid-' + key}
+        }))
+        //console.log('teste', teste)
+        //console.log('teste', geoJsonLayer_cluster[teste])
+        //console.log('teste', geoJsonLayer_cluster)
+      }
+
+      /*
+      // L.geoJSON(geojsonFeature, {
+      var geoJsonLayer = L.geoJSON(SDMData.MainPreview, {
+        onEachFeature: onEachFeature,
+        //style: myStyle,
+        //pointToLayer: function (feature, latlng) {
+        //  return L.circleMarker(latlng, geojsonMarkerOptions);
+        //}
+        //style: { color: "#0000ff" }
+        // style: function (feature) {
+        //   return color_pallete(feature['__fid']);
+        //   // return { color: feature.properties.color };
+        // },
+        // }).addTo(map);
+      })
+      //.addTo(map);
+     
+
+      markers.addLayer(geoJsonLayer);
+       */
+
+
+
+      markers.addLayers(geoJsonLayer_cluster);
+
+      // console.log('markers', markers)
+      // console.log('markers.getBounds()', markers.getBounds())
+
+      // https://hungchienhsiang.medium.com/super-simple-way-to-change-leaflet-marker-color-7efd0996c797
+      // markers._icon.classList.add("huechange");
+
+      map.addLayer(markers);
+      // console.log('markers', markers)
+      if (SDMData.MainPreview.length > 0) {
+
+        // try {
+        //   map.fitBounds(markers.getBounds());
+        // } catch (error) {
+        //   // console.log(error)
+        // }
+        if (document.getElementById("v_map_autofocus").checked) {
+          map.fitBounds(markers.getBounds());
+        }
+      }
+
+      // console.log('markers', markers)
+      // console.log('map', map)
+      // for (const [key, value] of Object.entries(markers._map._layers)) {
+      //   console.log('value', value)
+      //   if (value.hasOwnProperty("features") && value["features"].hasOwnProperty("__fid")) {
+      //     value._icon.classList.add("fid-" + value["features"]["__fid"])
+      //   }
+      // }
+      // console.log('todo render_active')
+      // console.log(filter_active_simple.value)
+    }
+
+    /**
+     * 
+     * Run ideally only once after all the files are ready to be rendered.
+     * Some async cases may be simpler to just run again
+     * (doing this for CSV asyng)
+     * 
+     **/
+    const ui_reload_after_import = () => {
+
+    }
+
+
+    const ui_map_pin_images = function (fid) {
+      // const _baseurl_icons = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-'
+      const _baseurl_icons = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-'
+      const list_icons = [
+        _baseurl_icons + "blue.png",
+        _baseurl_icons + "green.png",
+        _baseurl_icons + "gold.png",
+        _baseurl_icons + "orange.png",
+        _baseurl_icons + "red.png",
+        _baseurl_icons + "yellow.png",
+        _baseurl_icons + "violet.png",
+        _baseurl_icons + "grey.png",
+        _baseurl_icons + "blue.png",
+        _baseurl_icons + "black.png"
+      ]
+      const modulo = fid % list_icons.length
+      return list_icons[modulo]
+    }
+
+    const ui_datasets_list_event = function (event) {
+      // console.log('ui_datasets_list_event', event)
+
+      hide_fid = parseInt(document.querySelector("#hide_fid").value)
+      hide_fid_dist = parseInt(document.querySelector("#hide_fid_dist").value)
+      hide_fid_keys = document.querySelector("#hide_fid_keys").value.split(",").map(x => x.trim()).filter(x => x)
+      focus_fid = parseInt(document.querySelector("#focus_fid").value)
+
+      if (hide_fid > -1) {
+        document.querySelector(`#check__fid${hide_fid}`).checked = false
+      }
+
+      if (focus_fid > -1) {
+        document.querySelector(`#check__fid${focus_fid}`).checked = true
+        if (hide_fid === focus_fid) {
+          hide_fid = -1
+          document.querySelector("#hide_fid").value = "-1"
+        }
+      }
+
+      //filter_fids = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.fid)))
+      enabled_files = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.fid)))
+
+      update_filter_delayed()
+      // update_map()
+      //if (document.getElementById('ui_map_preview_realtime').checked) {
+      //  update_map()
+      //}
+      // if (document.getElementById('ui_map_preview').checked) {
+      //   update_map()
+      // }
+    }
+
+    const ui_datasets_list_fid_itens_count = function (fid) {
+      let count = 0
+      SDMData.Main.forEach(function (item) {
+        if (item["__fid"] == parseInt(fid)) {
+          count += 1
+        }
+      })
+
+      return new Intl.NumberFormat().format(count)
+    }
+
+    const ui_datasets_list = function (WorkingInputFiles) {
+      // console.log('ui_datasets_list')
+      const map_dataset_list = document.getElementById('map_dataset_list')
+
+      if (enabled_files.indexOf(-1) === 0) {
+        // needs initialization
+        enabled_files = []
+        WorkingInputFiles.forEach(function (item, index) {
+          enabled_files.push(index + 1)
+        })
+      }
+      enabled_files
+      let _html = []
+      _html.push(`<h2 class="visually-hidden">Filtros</h2>`)
+      _html.push(`<div class="row v_filter_bottom-element">`)
+      _html.push(`  <div class="col">`)
+      _html.push(`  <h3 class="h5">Loaded datasets</h3>`)
+      WorkingInputFiles.forEach(function (item, index) {
+        // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
+        _html.push(`<div class="form-check form-switch">
+  <input class="form-check-input" type="checkbox" role="switch" id="check__fid${index + 1}" data-fid="${index + 1}" checked onchange="ui_datasets_list_event(event)">
+  <label class="form-check-label" for="check__fid${index + 1}">
+    <img height="41" width="25" src="${ui_map_pin_images(index + 1)}"/>
+    [${ui_datasets_list_fid_itens_count(index + 1)}]
+    ${item["name"]}
+  </label>
+</div>`)
+      })
+
+      _html.push(`  </div>`)
+      _html.push(`  <div class="col">`)
+      _html.push(`    <div class="row">`)
+      _html.push(`      <h3 class="h5">Datasets used to hide others</h3>`)
+      _html.push(`      <select class="form-select" aria-label="Dataset to substract" onchange="ui_datasets_list_event(event)" id="hide_fid">
+  <option selected value="-1">- Dataset to substract - </option>`)
+      WorkingInputFiles.forEach(function (item, index) {
+        // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
+        _html.push(`<option value="${index + 1}">${item["name"]}</option>`)
+      })
+      _html.push(`      </select>`)
+      _html.push(`    </div>`)
+      _html.push(`    <div class="row">`)
+      _html.push(`      <div class="col">`)
+      _html.push(`        <div class="input-group mb-3">
+  <span class="input-group-text" id="">Distância (m)</span>
+  <input type="text" class="form-control" placeholder="-1 to disable" id="hide_fid_dist" aria-label="Distancia" value="25" onchange="ui_datasets_list_event(event)">
+</div>`)
+      _html.push(`      </div>`)
+      _html.push(`      <div class="col">`)
+      _html.push(`        <div class="input-group mb-3">
+  <span class="input-group-text" id="">Keys</span>
+  <input type="text" class="form-control" placeholder="phone,email,ref:vatin" aria-label="Key" value="phone,email,ref:vatin" id="hide_fid_keys"  onchange="ui_datasets_list_event(event)">
+</div>`)
+      _html.push(`        </div>`)
+      _html.push(`      </div>`)
+      _html.push(`    <div>`)
+      _html.push(`      <output id="hide_fid_output_log"></output>`)
+      _html.push(`    </div>`)
+      _html.push(`    <div class="row">`)
+      _html.push(`      <h3 class="h5">Dataset foco</h3>`)
+      _html.push(`      <select class="form-select" aria-label="Dataset de foco" onchange="ui_datasets_list_event(event)" id="focus_fid">
+  <option selected value="-1">- Dataset de foco - </option>`)
+      WorkingInputFiles.forEach(function (item, index) {
+        // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
+        _html.push(`<option value="${index + 1}">${item["name"]}</option>`)
+      })
+      _html.push(`      </select>`)
+      _html.push(`  </div>`)
+      _html.push(`</div>`)
+      //_html.push(`</div>`)
+
+      //map_dataset_list.innerHTML = "TODO"
+      map_dataset_list.innerHTML = _html.join("\n")
+
+      update_ui_refpos()
+      update_filter_delayed()
+    }
+
+    const ui_init_export = () => {
+      // export_filetype
+
+    }
+    const ui_init_inputsize = () => {
+
+      const uploadInput = document.getElementById("external-data-file");
+
+      uploadInput.addEventListener(
+        "change",
+        () => {
+          // Calculate total size
+          let numberOfBytes = 0;
+          for (const file of uploadInput.files) {
+            numberOfBytes += file.size;
+          }
+
+          // Approximate to the closest prefixed unit
+          const units = [
+            "B",
+            "KiB",
+            "MiB",
+            "GiB",
+            "TiB",
+            "PiB",
+            "EiB",
+            "ZiB",
+            "YiB",
+          ];
+          const exponent = Math.min(
+            Math.floor(Math.log(numberOfBytes) / Math.log(1024)),
+            units.length - 1
+          );
+          const approx = numberOfBytes / 1024 ** exponent;
+          const output =
+            exponent === 0
+              ? `${numberOfBytes} bytes`
+              : `${approx.toFixed(3)} ${units[exponent]
+              } (${numberOfBytes} bytes)`;
+
+          document.getElementById("fileNum").textContent =
+            uploadInput.files.length;
+          document.getElementById("fileSize").textContent = output;
+        },
+        false
+      );
+    }
+
+    /**
+     * Javascript that needs to run only once, after page finish load
+     **/
+    const init_ui = function () {
+      // const memory_download = document.getElementById("memory_download");
+      //const active_download = document.getElementById("active_download");
+      // const export_download = document.getElementById("export_download");
+      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+      const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+      //memory_download.addEventListener("click", saveGeoJSONofMemory)
+      // active_download.addEventListener("click", saveGeoJSONofActiveMemory)
+      export_download.addEventListener("click", exportFile)
+
+      const export_filetype = document.querySelectorAll('input[type=radio][name=export_filetype]')
+      export_filetype.forEach(function (element) {
+        element.addEventListener("click", function () {
+          let val = document.querySelector("input[type=radio][name=export_filetype]:checked").value
+          document.querySelector("#export_fileext").innerText = val
+        });
+      });
+
+      ui_init_inputsize()
+    }
+
+    document.addEventListener("DOMContentLoaded", init_ui)
+
+    /**
+     * Javascript events that need to respond to changes in the input,
+     * mostly after files are loaded, but user is changing filters
+     **/
+    const update_ui = function () {
+      // const ui_filter_extras = document.getElementById("ui_filter_extras");
+      // const ui_text_preview = document.getElementById("ui_text_preview");
+      const ui_map_preview = document.getElementById("ui_map_preview");
+      const ui_text_nopos_preview = document.getElementById("ui_text_nopos_preview");
+      // const ui_map_preview_realtime = document.getElementById("ui_map_preview_realtime");
+
+      if (ui_text_nopos_preview.checked) {
+        document.querySelector("#output_items_spatial").classList = "col-xl-4 col-lg-6"
+        document.querySelector("#output_items_nonspatial").classList = "col-xl-4 col-lg-6"
+        document.querySelector("#map-container").classList = "col-xl-4"
+        map.invalidateSize()
+      } else {
+        document.querySelector("#output_items_spatial").classList = "col-xl-4"
+        document.querySelector("#output_items_nonspatial").classList = "d-none"
+        document.querySelector("#map-container").classList = "col-xl-8"
+        map.invalidateSize()
+      }
+
+      // const output = document.getElementById("output");
+      // if (!ui_filter_extras.checked) {
+      //   document.getElementById('extra_filter').classList.add('visually-hidden')
+      //   refpoint_latitude = null
+      //   refpoint_longitude = null
+      //   refpoint_distance = null
+
+      // } else {
+      //   document.getElementById('extra_filter').classList.remove('visually-hidden')
+      //   refpoint_latitude = null
+      //   refpoint_longitude = null
+      //   refpoint_distance = null
+      // }
+      // if (!ui_text_preview.checked) {
+      //   document.getElementById('output').classList.add('visually-hidden')
+      // } else {
+      //   document.getElementById('output').classList.remove('visually-hidden')
+      // }
+      // if (!ui_map_preview.checked) {
+      //   document.getElementById('map-container').classList.add('visually-hidden')
+      //   document.getElementById('ui_map_preview_realtime_group').classList.add('visually-hidden')
+      //   document.getElementById('ui_map_preview_realtime').checked = false
+      //   document.getElementById('render_active_group').classList.add('visually-hidden')
+      // } else {
+      //   document.getElementById('map-container').classList.remove('visually-hidden')
+      //   document.getElementById('ui_map_preview_realtime_group').classList.remove('visually-hidden')
+      //   document.getElementById('render_active_group').classList.remove('visually-hidden')
+      // }
+      // if (!ui_map_preview_realtime.checked) {
+      //   document.getElementById('render_active').classList.remove('visually-hidden')
+      //   // document.getElementById('ui_map_preview_realtime_group').classList.add('visually-hidden')
+      //   // document.getElementById('ui_map_preview_realtime').checked = false
+      //   // document.getElementById('render_active_group').classList.add('visually-hidden')
+      // } else {
+      //   document.getElementById('render_active').classList.add('visually-hidden')
+      //   // document.getElementById('ui_map_preview_realtime_group').classList.remove('visually-hidden')
+      //   // document.getElementById('render_active_group').classList.remove('visually-hidden')
+      // }
+
+      // SDMData.MainPreview
+    }
+
+    function update_ui_refpos() {
+      const filter_active_latlon = document.getElementById("filter_active_latlon").value;
+      const filter_active_latlon_dist = parseInt(document.getElementById("filter_active_latlon_dist").value);
+
+
+      // @tid=98
+      if (filter_active_latlon.includes("@tid=")) {
+        let _parts = filter_active_latlon.trim().split("@tid=")
+        let _tid = parseInt(_parts[1])
+        // console.log('@tid', filter_active_latlon, _parts)
+
+        SDMData.Main.some(function (item, index) {
+          if (item["__tid"] == _tid) {
+            // Only if is Point, others may not be excatly on center
+            refpoint_latlon = item['geometry']['coordinates']
+            return true
+          }
+        })
+
+      } else if (filter_active_latlon.includes("#map=")) {
+        // example https://www.openstreetmap.org/edit#map=18/-30.15178/-51.13461
+        // example parse https://osm.org/edit#map=18/-30.15178/-51.13461
+        let _parts = filter_active_latlon.split("#map=")
+        let _parts2 = _parts[1].split("/") // zoom, lon, lat
+        // On URL, is the opposite order
+        refpoint_latlon = [parseFloat(_parts2[2]), parseFloat(_parts2[1])]
+      } else {
+        const _latlon = filter_active_latlon.split(',')
+        if (_latlon.length != 2) {
+          refpoint_latlon = null
+        } else {
+          refpoint_latlon = [parseFloat(_latlon[0]), parseFloat(_latlon[1])]
+          // refpoint_longitude = _latlon[0]
+          // refpoint_longitude = _latlon[1]
+        }
+      }
+
+      refpoint_distance = filter_active_latlon_dist
+    }
+
+    const ui_clean = function (event) {
+      // console.log(event)
+      //console.log(event.target.id)
+      if (event.target.id === "v_meta") {
+        console.log('ui_clean toggle: show/hide bars, title of app, etc')
+        if (event.target.checked) {
+          document.querySelectorAll('.v_meta-element').forEach(x => x.classList.remove('d-none'))
+        } else {
+          document.querySelectorAll('.v_meta-element').forEach(x => x.classList.add('d-none'))
+        }
+      }
+      if (event.target.id === "v_filter_up") {
+        console.log('ui_clean toggle: show/hide filters/selectors at the top')
+        if (event.target.checked) {
+          document.querySelectorAll('.v_filter_up-element').forEach(x => x.classList.remove('d-none'))
+        } else {
+          document.querySelectorAll('.v_filter_up-element').forEach(x => x.classList.add('d-none'))
+        }
+      }
+      if (event.target.id === "v_filter_bottom") {
+        console.log('ui_clean toggle: show/hide filters/selectors at bottom')
+        if (event.target.checked) {
+          document.querySelectorAll('.v_filter_bottom-element').forEach(x => x.classList.remove('d-none'))
+        } else {
+          document.querySelectorAll('.v_filter_bottom-element').forEach(x => x.classList.add('d-none'))
+        }
+      }
+      if (event.target.id === "v_map_autofocus") {
+        console.log('ui_clean toggle: enable/disable map autofocus when filters change')
+      }
+    }
+
+    //document.getElementById("ui_text_preview").addEventListener('change', update_ui)
+    document.getElementById("ui_text_nopos_preview").addEventListener('change', update_ui)
+    document.getElementById("ui_map_preview").addEventListener('change', update_ui)
+    // document.getElementById("ui_filter_extras").addEventListener('change', update_ui)
+    document.getElementById("filter_active_latlon").addEventListener('change', update_ui_refpos)
+    document.getElementById("filter_active_latlon_dist").addEventListener('change', update_ui_refpos)
+    // https://stackoverflow.com/questions/41256026/clear-marker-layers-leaflet
+
+    filter_active_simple.addEventListener('keyup', function (ev) {
+      // console.log(ev)
+      update_filter_delayed()
+
+      // if (document.getElementById('ui_map_preview').checked) {
+      //   // console.log('todo update map now (TODO otimize only one render)')
+      //   update_map()
+      // }
+      // update_map()
+      // console.log(filter_active_simple.value)
+    })
+
+    filter_active_latlon.addEventListener('keyup', function (ev) {
+      update_ui_refpos()
+      update_filter_delayed()
+      // update_map()
+      // if (document.getElementById('ui_map_preview').checked) {
+      //   update_map()
+      // }
+    })
+    filter_active_latlon_dist.addEventListener('keyup', function (ev) {
+      update_ui_refpos()
+      update_filter_delayed()
+      // update_map()
+      // if (document.getElementById('ui_map_preview_realtime').checked) {
+      //   //   update_map()
+      // }
+    })
+
+    // render_active.addEventListener('click', function (ev) {
+    //   // console.log(ev)
+    //   update_map()
+
+    // })
+
+  </script>
+  <!-- <script src="main.js"></script> -->
+</body>
+
+</html>
