@@ -4,7 +4,7 @@
 <!--
   @author Emerson Rocha <rocha(at)ieee.org>
   @license AGPL
-  @version 0.5.3.2
+  @version 0.5.3.3-beta
 -->
 
 <head>
@@ -58,7 +58,7 @@
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark v_meta-element">
     <div class="container">
-      <a class="navbar-brand" href="#">SDM <sup>v0.5.3.2 beta</sup></a>
+      <a class="navbar-brand" href="#">SDM <sup>v0.5.3.3 beta</sup></a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
         aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
@@ -788,6 +788,9 @@ phone
     // const data_active_count_m = document.getElementById("data_active_count_m");
     let _is_exportable = []
     let _is_not_exportable = []
+
+    let _readfile_start_time = -1
+    //const start_time = new Date()
 
     // console.log('refpoint_latlon', refpoint_latlon)
 
@@ -1842,6 +1845,8 @@ phone
       // input.files.forEach(function (file) {
 
       let stack_left = []
+      // const start_time = new Date()
+      _readfile_start_time = new Date()
 
       Array.from(input.files).forEach(function (file) {
         stack_left.push(file)
@@ -1850,27 +1855,10 @@ phone
       // Array.from(input.files).forEach(function (file) {
       function readFileMainLoop(file) {
 
-        // if (file.name.endsWith(".geojsonl")) {
-        //   console.error(`readFile ${file.name}: GeoJSONSeq/GeoJSONL not implemented yet`)
-        // }
-
-        // if (file.name.endsWith(".geojsonl")) {
-        //   console.error(`readFile ${file.name}: GeoJSONSeq/GeoJSONL not implemented yet`)
-        // }
-
-        if (file.size >= 2147483648 && !file.name.endsWith(".geojsonl")) {
-          console.warn(`readFile ${file.name} [${file.size}]: >2GB file, chunk parsing not implemented yet, may fail`)
-        }
-
-        // console.log('file', file)
-        // console.log('file', file.nam'e)
         WorkingInputFiles.push(file)
 
         //START
-        // const processIndividualFile = (
-        //   file, _data_ex_count_i, _data_ex_count_t, filter_options, fields_to_export, examples, files_loaded
-        // ) => {
-        function processIndividualFile(
+        async function processIndividualFile(
           file, cb
         ) {
 
@@ -1898,16 +1886,6 @@ phone
 
             }
 
-            // // 128 mb = 134,217,728 Bytes
-            // const queuingStrategy = new CountQueuingStrategy({
-            //   // highWaterMark: 1
-            //   highWaterMark: 10,
-            //   // size: 134217728
-            //   size : function size(chunk) {
-            //     return 134217728
-            //   }
-            // });
-
             file
               .stream()
               .pipeThrough(new TextDecoderStream())
@@ -1922,17 +1900,7 @@ phone
                 write(textChunk) {
                   let _active_stack = []
                   let _geojson_string = ''
-                  // document.body.append(textChunk)
 
-                  // @TODO correct split would be:
-                  //       String.fromCharCode(30, 10)
-                  // if (textChunk.includes(String.fromCharCode(30))) {
-                  //   _current_parts = textChunk.split(String.fromCharCode(30))
-                  // } else if (textChunk.includes("\n")) {
-                  //   _current_parts = textChunk.split("\n")
-                  // } else {
-                  //   _current_parts = [textChunk]
-                  // }
                   // RS + LF
                   // https://www.rfc-editor.org/rfc/rfc8142
                   if (textChunk.includes(String.fromCharCode(30, 10))) {
@@ -1942,8 +1910,6 @@ phone
                   }
 
                   _current_parts = _current_parts.filter(Boolean)
-
-                  // console.log(_current_parts)
 
                   while (_current_parts.length != 0) {
                     if (_last_part != '') {
@@ -1990,18 +1956,9 @@ phone
                       _data_ex_count_i += 1
                       SDMData.Main.push(select_attributes(_geojson_object, fields_to_export, input_file_index, _data_ex_count_i, import_fields_anyifosm_nwr))
 
-                      // // if (filter_options === null || filter(_geojson_object['properties'], filter_options)) {
-                      // if (filter_options === null || filter(_geojson_object, filter_options)) {
-                      //   _data_ex_count_i += 1
-                      //   SDMData.Main.push(select_attributes(_geojson_object, fields_to_export, input_file_index, _data_ex_count_i))
-                      // } else {
-                      //   // not matched
-                      // }
                     }
                   }
 
-                  // console.log(1, textChunk.length)
-                  // throw Error("stop at first chunk")
                 },
                 close(controller) {
                   const t1 = profile_times[file.name]
@@ -2024,12 +1981,8 @@ phone
             // files_loaded += 1
 
           } else if (file.name.endsWith(".csv") || file.name.endsWith(".tsv")) {
-            console.log("@TODO", file)
+            // console.log("@TODO", file)
             var input_file_index = files_loaded + 1
-
-            // @TODO: if the data contains typical fields for latitude/longitude
-            //        we use similar strategy to GEOJSON
-
 
             let _papa_initialize = false
             let _papa_to_geojson = false
@@ -2157,19 +2110,9 @@ phone
                       }
                     }
 
-                    // if (!(SDMData.Reference.length === 0 || filter_by_reference_on_import(item3, SDMConf.Reference))) {
-                    //   continue
-                    // }
                     _data_ex_count_i += 1
                     SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
 
-                    // if ((filter_options === null || filter(item3, filter_options)) &&
-                    //   (SDMData.Reference.length === 0 || filter_by_reference_on_import(item3, SDMConf.Reference))) {
-                    //   _data_ex_count_i += 1
-                    //   SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
-                    // } else {
-                    //   // not matched
-                    // }
                     examples.push(original_data['features'][0])
                   }
 
@@ -2195,17 +2138,13 @@ phone
             };
           };
 
-
           // END
         }
 
-        // console.log('...processIndividualFile')
-
-        // processIndividualFile(
-        //   file, _data_ex_count_i, _data_ex_count_t, filter_options, fields_to_export, examples
-        // )
         processIndividualFile(
-          file, console.log
+          file, function (comment) {
+            //console.log(comment)
+          }
         )
 
       }
@@ -2216,28 +2155,26 @@ phone
       }
       //await readFileMainLoop()
 
+      let last_count = SDMData.Main.length
+
       let existCondition = setInterval(function () {
+
+        // console.log('SDMData.Main.length', SDMData.Main.length)
 
         // console.log('>>>>>>>> existCondition <<<<<<<<')
         if (files_csv_finished !== files_csv_total) {
           console.log('files_csv_finished !== files_csv_total. Waiting...')
 
-        } else if (input.files.length == files_loaded) {
+        } else if (input.files.length == files_loaded && last_count == SDMData.Main.length) {
           // console.log("input.files.length == files_loaded");
           clearInterval(existCondition);
 
-          // doTheRestOfTheStuff(parameters);
-          // console.log('readFile', { 'loaded': _data_ex_count_i, 'total': _data_ex_count_t, 'filter_options': filter_options, 'fields_to_export': fields_to_export, 'examples': examples })
-          // data_ex_count_t.textContent = _data_ex_count_t
           data_ex_count_t.textContent = (new Intl.NumberFormat(locale_number).format(_data_ex_count_t))
-          // data_ex_count_i.textContent = _data_ex_count_i
           data_ex_count_i.textContent = (new Intl.NumberFormat(locale_number).format(_data_ex_count_i))
 
           if (_data_ex_count_i <= SDMConf.Preview.text) {
-            // data_active_count.textContent = _data_ex_count_i
             data_active_count.textContent = new Intl.NumberFormat(locale_number).format(_data_ex_count_i)
           } else {
-            // data_active_count.textContent = SDMConf.Preview.text + ' (' + _data_ex_count_i + ')'
             data_active_count.textContent = (new Intl.NumberFormat(locale_number).format(SDMConf.Preview.text)) + ' (' + (new Intl.NumberFormat(locale_number).format(_data_ex_count_i)) + ')'
           }
           // output.textContent = output_printer(SDMData.Main)
@@ -2264,9 +2201,16 @@ phone
             update_ui()
           }
 
+          //const t1 = profile_times[file.name]
+          //const t2 = new Date()
+          const diff_read_all = humanDiff(_readfile_start_time, new Date())
+          console.log(`readFile (all files + processing) end: took: ${diff_read_all}`)
+
         } else {
-          console.log('waiting input.files.length == files_loaded', input.files.length, files_loaded)
+          console.log('waiting input.files.length == files_loaded and last_count vs SDMData.Main.length stabilize', input.files.length, files_loaded, last_count, SDMData.Main.length)
         }
+
+        last_count = SDMData.Main.length
       }, 500); // check every 500ms
 
     } // function readFile(input) {
