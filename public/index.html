@@ -1863,7 +1863,7 @@ phone
         //   file, _data_ex_count_i, _data_ex_count_t, filter_options, fields_to_export, examples, files_loaded
         // ) => {
         function processIndividualFile(
-          file
+          file, cb
         ) {
 
           // console.log('processIndividualFile', file, files_loaded)
@@ -2003,6 +2003,8 @@ phone
                   // if (console.profile) {
                   //   console.profileEnd(`WritableStream${file.name}`)
                   // }
+
+                  cb(`Loaded ${file.name}`)
                 },
                 // }, queuingStrategy))
               }))
@@ -2105,6 +2107,7 @@ phone
                 console.log("CSV import for file finished", file)
                 // SDMData.AuxiliaryPreview = SDMData.Auxiliary
                 files_csv_finished += 1
+                cb(`Loaded ${file.name}`)
               }
             });
           } else {
@@ -2115,56 +2118,52 @@ phone
             var input_file_index = files_loaded + 1
             let match_score = 0
 
-
             reader.onload = function () {
               // console.log('loaded this', this)
 
-              let original_data = JSON.parse(reader.result)
+              try {
 
-              for (let index = 0; index < original_data['features'].length; index++) {
-                const item3 = original_data['features'][index];
-                _data_ex_count_t += 1
+                let original_data = JSON.parse(reader.result)
 
-                if (!(filter_options === null || filter(item3, filter_options))) {
-                  continue
-                }
+                for (let index = 0; index < original_data['features'].length; index++) {
+                  const item3 = original_data['features'][index];
+                  _data_ex_count_t += 1
 
-                if (SDMData.Reference.length !== 0) {
-                  match_score = filter_by_reference_on_import(item3, SDMConf.Reference)
-                  // console.log('__match_score', match_score, item3, SDMConf.Reference)
-                  if (match_score < 50) {
+                  if (!(filter_options === null || filter(item3, filter_options))) {
                     continue
                   }
+
+                  if (SDMData.Reference.length !== 0) {
+                    match_score = filter_by_reference_on_import(item3, SDMConf.Reference)
+                    // console.log('__match_score', match_score, item3, SDMConf.Reference)
+                    if (match_score < 50) {
+                      continue
+                    }
+                  }
+
+                  // if (!(SDMData.Reference.length === 0 || filter_by_reference_on_import(item3, SDMConf.Reference))) {
+                  //   continue
+                  // }
+                  _data_ex_count_i += 1
+                  SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
+
+                  // if ((filter_options === null || filter(item3, filter_options)) &&
+                  //   (SDMData.Reference.length === 0 || filter_by_reference_on_import(item3, SDMConf.Reference))) {
+                  //   _data_ex_count_i += 1
+                  //   SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
+                  // } else {
+                  //   // not matched
+                  // }
+                  examples.push(original_data['features'][0])
                 }
-
-                // if (!(SDMData.Reference.length === 0 || filter_by_reference_on_import(item3, SDMConf.Reference))) {
-                //   continue
-                // }
-                _data_ex_count_i += 1
-                SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
-
-                // if ((filter_options === null || filter(item3, filter_options)) &&
-                //   (SDMData.Reference.length === 0 || filter_by_reference_on_import(item3, SDMConf.Reference))) {
-                //   _data_ex_count_i += 1
-                //   SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
-                // } else {
-                //   // not matched
-                // }
+              } catch (error) {
+                // console.error(error);
+                console.warn(error);
+                // Expected output: ReferenceError: nonExistentFunction is not defined
+                // (Note: the exact output may be browser-dependent)
+              } finally {
+                cb(`Loaded ${file.name}`)
               }
-
-
-              // original_data['features'].forEach(function (item) {
-              //   _data_ex_count_t += 1
-              //   // if (filter_options === null || filter(item['properties'], filter_options)) {
-              //   if ((filter_options === null || filter(item, filter_options)) &&
-              //     (SDMData.Reference.length === 0 || filter_by_reference_on_import(item, SDMConf.Reference))) {
-              //     _data_ex_count_i += 1
-              //     SDMData.Main.push(select_attributes(item, fields_to_export, input_file_index, _data_ex_count_i))
-              //   } else {
-              //     // not matched
-              //   }
-              // })
-              examples.push(original_data['features'][0])
 
               // files_loaded += 1
             }
@@ -2185,7 +2184,7 @@ phone
         //   file, _data_ex_count_i, _data_ex_count_t, filter_options, fields_to_export, examples
         // )
         processIndividualFile(
-          file
+          file, console.log
         )
         files_loaded += 1
 
