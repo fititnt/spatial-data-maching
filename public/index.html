@@ -4,7 +4,7 @@
 <!--
   @author Emerson Rocha <rocha(at)ieee.org>
   @license AGPL
-  @version 0.5.3.3-beta
+  @version 0.6.0b1
 -->
 
 <head>
@@ -17,6 +17,9 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"
     integrity="sha384-5kMSQJ6S4Qj5i09mtMNrWpSi8iXw230pKU76xTmrpezGnNJQzj0NzXjQLLg+jE7k" crossorigin="anonymous">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"
+    integrity="sha512-CSBhVREyzHAjAFfBlIBakjoRUKp5h7VSweP0InR/pAJyptH7peuhCsqAI/snV+TwZmXZqoUklpXp6R6wMnYf5Q=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <style>
     .leaflet-container {
       height: 800px;
@@ -58,7 +61,7 @@
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark v_meta-element">
     <div class="container">
-      <a class="navbar-brand" href="#">SDM <sup>v0.5.3.3 beta</sup></a>
+      <a class="navbar-brand" href="#">SDM <sup>v0.6.0b1</sup></a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
         aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
@@ -103,7 +106,7 @@
               <div class="col">
                 <label for="external-data-file" class="form-label visually-hidden">Carregar arquivo externo</label>
                 <input class="form-control form-control-lg" id="external-data-file" type="file"
-                  onchange="readFile(this)" accept=".json, .geojson, .geojsonl, .csv, .tsv" multiple>
+                  onchange="readFile(this)" accept=".json, .geojson, .geojsonl, .csv, .tsv, .yaml, .yml" multiple>
 
                 <!-- <label for="fileNum">Arquivos:</label> -->
                 Files:
