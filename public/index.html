@@ -1845,10 +1845,10 @@ phone
      * Other cases: run as usual
      **/
     function readFilesOrParameters(input_or_false) {
-      console.log('readFilesOrParameters', this)
-      console.log('readFilesOrParameters', input_or_false)
-      console.log('readFilesOrParameters', input_or_false.tag)
-      console.log('readFilesOrParameters', input_or_false.id)
+      // console.log('readFilesOrParameters', this)
+      // console.log('readFilesOrParameters', input_or_false)
+      // console.log('readFilesOrParameters', input_or_false.tag)
+      // console.log('readFilesOrParameters', input_or_false.id)
 
       let remote_files = []
 
@@ -1856,7 +1856,8 @@ phone
         // console.log('todo')
 
         if ("data" in SDMConf.FromURIParameters && SDMConf.FromURIParameters.data.length > 0) {
-          console.log("SDMConf.FromURIParameters.data", SDMConf.FromURIParameters.data)
+          // console.log("SDMConf.FromURIParameters.data", SDMConf.FromURIParameters.data)
+          remote_files = SDMConf.FromURIParameters.data
         } else {
           throw new Error("Bad initialization");
         }
@@ -1868,14 +1869,16 @@ phone
             console.warn("TODO process YAML file first")
           }
         })
-
-        readFile(input_or_false, remote_files)
       }
+
+      readFile(input_or_false, remote_files)
     }
 
     /**
      * readFile. Accept either the input element (the one user select files from disk)
-     * or a list of remote files to load
+     * or a list of remote files to load.
+     * 
+     * Ideally this should be refactored, but is working for now.
      * 
      **/
     async function readFile(input, remote_files) {
@@ -1906,15 +1909,20 @@ phone
       // })
 
       // Array.from(input.files).forEach(function (file) {
-      function readFileMainLoop(file) {
+      function readFileMainLoop(file, remote_file) {
 
-        WorkingInputFiles.push(file)
+        WorkingInputFiles.push(file || remote_file)
 
         //START
         async function processIndividualFile(
-          file, cb
+          file, remote_file, cb
         ) {
 
+
+          if (!file) {
+            // merely to mimic file.name
+            file = remote_file
+          }
           // console.log('processIndividualFile', file, files_loaded)
           // @TODO change to work with files over 2 GB
           //       See https://stackoverflow.com/questions/73137555/filereader-domexception-unable-to-convert-blob-to-base64-string
@@ -1939,7 +1947,11 @@ phone
 
             }
 
-            file
+            // @TODO this part of remote stream for geojsonl needs be tested
+            _streamfile = file || remote_file._response
+
+            //file
+            _streamfile
               .stream()
               .pipeThrough(new TextDecoderStream())
               .pipeTo(new WritableStream({
@@ -2045,8 +2057,13 @@ phone
 
             files_csv_total += 1
 
+            // @TODO this part of remote stream for geojsonl needs be tested
+            _file = file || await remote_file._response.text();
+            //const file_content = await remote_file.response.text();
+
             // Papa.parse(bigFile, {
-            Papa.parse(file, {
+            // Papa.parse(file, {
+            Papa.parse(_file, {
               worker: true,
               // worker: false,
               header: true,
@@ -2132,49 +2149,49 @@ phone
             });
           } else {
 
-            let reader = new FileReader();
-            reader.readAsText(file);
-            // console.log('files_loaded', files_loaded, )
-            var input_file_index = files_loaded + 1
-            let match_score = 0
+            // Last part: generic json/geojson (either remote or local)
 
-            reader.onload = function () {
-              // console.log('loaded this', this)
+            // console.log('poin')
+
+            function _parser_geojson_text(text) {
+              let original_data = JSON.parse(text)
+
+              for (let index = 0; index < original_data['features'].length; index++) {
+                const item3 = original_data['features'][index];
+                _data_ex_count_t += 1
+
+                if (!(filter_options === null || filter(item3, filter_options))) {
+                  continue
+                }
+
+                if (SDMData.Reference.length !== 0) {
+                  match_score = filter_by_reference_on_import(item3, SDMConf.Reference)
+                  // console.log('__match_score', match_score, item3, SDMConf.Reference)
+                  if (match_score < 50) {
+                    continue
+                  }
+                }
+
+                _data_ex_count_i += 1
+                SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
+
+                examples.push(original_data['features'][0])
+              }
+            }
+
+            if (!!remote_file) {
+
+              console.log('Remote fetch...', remote_file)
 
               try {
+                const _text = await remote_file._response.text();
 
-                // Check for empty file
-                if (reader.result && reader.result.length > 0) {
-                  let original_data = JSON.parse(reader.result)
-
-                  for (let index = 0; index < original_data['features'].length; index++) {
-                    const item3 = original_data['features'][index];
-                    _data_ex_count_t += 1
-
-                    if (!(filter_options === null || filter(item3, filter_options))) {
-                      continue
-                    }
-
-                    if (SDMData.Reference.length !== 0) {
-                      match_score = filter_by_reference_on_import(item3, SDMConf.Reference)
-                      // console.log('__match_score', match_score, item3, SDMConf.Reference)
-                      if (match_score < 50) {
-                        continue
-                      }
-                    }
-
-                    _data_ex_count_i += 1
-                    SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
-
-                    examples.push(original_data['features'][0])
-                  }
-
+                //console.log('remote start....', _text)
+                if (_text && _text.length > 0) {
+                  _parser_geojson_text(_text)
                 }
               } catch (error) {
-                // console.error(error);
-                console.error(file.name, error, reader.result);
-                // Expected output: ReferenceError: nonExistentFunction is not defined
-                // (Note: the exact output may be browser-dependent)
+                console.error(file.name, error, remote_file._response.error);
               } finally {
                 return new Promise((resolve, reject) => {
                   cb(`Loaded ${file.name}`)
@@ -2182,28 +2199,106 @@ phone
                 })
               }
 
+            } else {
+              let reader = new FileReader();
+              reader.readAsText(file);
+              // console.log('files_loaded', files_loaded, )
+              var input_file_index = files_loaded + 1
+              let match_score = 0
+
+              reader.onload = function () {
+                // console.log('loaded this', this)
+
+                try {
+
+                  // Check for empty file
+                  if (reader.result && reader.result.length > 0) {
+                    _parser_geojson_text(reader.result)
+                  }
+                } catch (error) {
+                  console.error(file.name, error, reader.result);
+                  // Expected output: ReferenceError: nonExistentFunction is not defined
+                  // (Note: the exact output may be browser-dependent)
+                } finally {
+                  return new Promise((resolve, reject) => {
+                    cb(`Loaded ${file.name}`)
+                    resolve()
+                  })
+                }
+
+                // files_loaded += 1
+              }
               // files_loaded += 1
+              reader.onerror = function () {
+                console.error(reader.error);
+                // files_loaded += 1
+              };
             }
-            // files_loaded += 1
-            reader.onerror = function () {
-              console.error(reader.error);
-              // files_loaded += 1
-            };
+
           };
 
           // END
         }
 
         processIndividualFile(
-          file, function (comment) {
+          file, remote_file, function (comment) {
             //console.log(comment)
           }
         )
       }
 
+      // console.log('.,,.', input.files)
+
       if (remote_files && remote_files.length > 0) {
         // Is list of remote URLS (not from local disk)
-        console.warn("TODO")
+        // console.warn("TODO")
+        for (let index = 0; index < remote_files.length; index++) {
+          const element = remote_files[index];
+
+          if (typeof element !== "string") {
+            throw new Error("TODO implement complex list of data to load here");
+            // @TODO deal with fallbacks
+
+          }
+          let _url = element
+
+          let pseudo_file = {
+            // @see https://stackoverflow.com/questions/511761
+            name: _url.split('#')[0].split('?')[0].split('/').pop(),
+            url: _url,
+            size: -1,
+            _content: null,
+            _response: null,
+            _remote: true
+          }
+
+          // @TODO maybe depending of the extension pass not the string
+          //       but let the papaparse or geojsonl deal with ajax call
+
+          try {
+            const response = await fetch(_url);
+            if (!response.ok) {
+              throw new Error(`Response status: ${response.status}`);
+            }
+
+            // const _rext = await response.text();
+            // console.log(_rext);
+            pseudo_file._response = response
+            // pseudo_file._content = await response.text();
+            //pseudo_file._content = response.text();
+          } catch (error) {
+            console.error(error.message);
+          }
+
+          if (pseudo_file.name.endsWith(".yaml", '.yml')) {
+            // skip configuration files
+          } else {
+            await readFileMainLoop(null, pseudo_file)
+            files_loaded += 1
+          }
+
+        }
+
 
       } else if (input !== false) {
         // Is list of files on local disk
@@ -2227,6 +2322,13 @@ phone
       let last_count = SDMData.Main.length
 
       let existCondition = setInterval(function () {
+        let _totalfiles = -1
+        if (input.files) {
+          // This will fail if have any YAML
+          _totalfiles = input.files.length
+        } else {
+          _totalfiles = remote_files.length
+        }
 
         // console.log('SDMData.Main.length', SDMData.Main.length)
 
@@ -2234,8 +2336,9 @@ phone
         if (files_csv_finished !== files_csv_total) {
           console.log('files_csv_finished !== files_csv_total. Waiting...')
 
-        } else if (input.files.length == files_loaded && last_count == SDMData.Main.length) {
-          // console.log("input.files.length == files_loaded");
+        // } else if (input.files.length == files_loaded && last_count == SDMData.Main.length) {
+        } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length) {
+          console.log("input.files.length == files_loaded");
           clearInterval(existCondition);
 
           data_ex_count_t.textContent = (new Intl.NumberFormat(locale_number).format(_data_ex_count_t))
@@ -2247,7 +2350,12 @@ phone
             data_active_count.textContent = (new Intl.NumberFormat(locale_number).format(SDMConf.Preview.text)) + ' (' + (new Intl.NumberFormat(locale_number).format(_data_ex_count_i)) + ')'
           }
           // output.textContent = output_printer(SDMData.Main)
+
+
+          console.log('compute SDMData.MainPreview  ...', SDMData.MainPreview )
           SDMData.MainPreview = SDMData.Main.slice(0, SDMConf.Preview.map)
+          console.log('compute SDMData.MainPreview  done', SDMData.MainPreview )
+          //console.log('....SDMData.MainPreview', SDMData.Main, SDMData.MainPreview, SDMConf.Preview.map)
           // console.log('WorkingInputFiles', WorkingInputFiles)
 
           ui_datasets_list(WorkingInputFiles)
@@ -2276,7 +2384,7 @@ phone
           console.log(`readFile (all files + processing) end: took: ${diff_read_all}`)
 
         } else {
-          console.log('waiting input.files.length == files_loaded and last_count vs SDMData.Main.length stabilize', input.files.length, files_loaded, last_count, SDMData.Main.length)
+          console.log('waiting input.files.length == files_loaded and last_count vs SDMData.Main.length stabilize', _totalfiles, files_loaded, last_count, SDMData.Main.length)
         }
 
         last_count = SDMData.Main.length
@@ -3256,7 +3364,7 @@ phone
 
         const searchParams = new URLSearchParams(document.location.search.replace(/^\?/, ""));
         for (const p of searchParams) {
-          console.log(p);
+          // console.log(p);
           if (p[0] === "data[]") {
             simple_conf.data.push(p[1])
             trigger_init = true
