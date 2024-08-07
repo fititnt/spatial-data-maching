@@ -870,6 +870,13 @@ phone
     }
 
 
+    /**
+     * @TODO refactor this later as part of more complex
+     *       tagging parsing. Likely move the keys into
+     *       something that is configurable
+     *       - fititnt 2024-08-07 16:22 BRT 
+     * 
+     **/
     function _parse_options_even_more_regex(key, regex_str) {
       let names = [
         'name', 'old_name', 'alt_name', 'official_name'
@@ -3171,6 +3178,30 @@ phone
 
       update_ui_refpos()
       update_filter_delayed()
+    }
+
+    /**
+     * 
+     **/
+    const ui_init_urlparameters = () => {
+
+      if (document.location.search.length > 1) {
+
+        let simple_conf = {
+          data: []
+        }
+
+        const searchParams = new URLSearchParams(document.location.search.replace(/^\?/, ""));
+        for (const p of searchParams) {
+          console.log(p);
+          if (p[0] === "data[]") {
+            simple_conf.data.push(p[1])
+          }
+        }
+
+        console.log('ui_init_urlparameters', simple_conf)
+      }
+      return false
     }
 
     const ui_init_export = () => {

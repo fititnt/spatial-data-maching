@@ -1,0 +1,29 @@
+data:
+  - https://raw.githubusercontent.com/fititnt/spatial-data-maching/main/tests/test-1/1_osm.geojson
+basemap:
+  # Note: leaflet_wms_overlay is not implemeted in the JavaScript code. Is here only for testing
+  leaflet_wms_overlay:
+    wms: 'https://bdgex.eb.mil.br/mapcache?'
+    layers: 'Multiescala_Hidrografia2'
+    format: 'image/png'
+    transparent: true
+    tiled: true
+    crs: L.CRS.EPSG4326
+    attribution: 'Camada de hidrografia por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>'
+    maxNativeZoom: 16
+    maxZoom: 20
+
+# const overlay_bdgex_hidrigrafia = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+  # // layers: 'ieders_mi290_portao'
+  # layers: 'Multiescala_Hidrografia',
+  # format: 'image/png',
+  # transparent: true,
+  # tiled: true,
+  # // srs: 'EPSG:4326',
+  # crs: L.CRS.EPSG4326,
+  # // attribution: 'https://bdgex.eb.mil.br/',
+  # attribution: 'Camada de hidrografia por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
+  # // maxNativeZoom: 17,
+  # maxNativeZoom: 16,
+  # maxZoom: 20
+# })
