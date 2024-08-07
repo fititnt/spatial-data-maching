@@ -104,9 +104,10 @@
           <form>
             <div class="row">
               <div class="col">
-                <label for="external-data-file" class="form-label visually-hidden">Carregar arquivo externo</label>
+                <label for="external-data-file" class="form-label visually-hidden">Load external files</label>
                 <input class="form-control form-control-lg" id="external-data-file" type="file"
-                  onchange="readFile(this)" accept=".json, .geojson, .geojsonl, .csv, .tsv, .yaml, .yml" multiple>
+                  onchange="readFilesOrParameters(this)" accept=".json, .geojson, .geojsonl, .csv, .tsv, .yaml, .yml"
+                  multiple>
 
                 <!-- <label for="fileNum">Arquivos:</label> -->
                 Files:
@@ -660,7 +661,9 @@ phone
         "distance2": 100,
         "rules": [],
         "allow_missing_ref": true
-      }
+      },
+      FromURIParameters: {},
+      FromConfFileRAW: {}
     }
 
     let SDMOption = {
@@ -1835,7 +1838,47 @@ phone
       return parsed['features']
     }
 
-    async function readFile(input) {
+    /**
+     * Caller to trigger file processing.
+     * If false, assume was initialized by URL parametyers
+     * If is reference, but one of the items is YAML, process the YAML first
+     * Other cases: run as usual
+     **/
+    function readFilesOrParameters(input_or_false) {
+      console.log('readFilesOrParameters', this)
+      console.log('readFilesOrParameters', input_or_false)
+      console.log('readFilesOrParameters', input_or_false.tag)
+      console.log('readFilesOrParameters', input_or_false.id)
+
+      let remote_files = []
+
+      if (input_or_false === false) {
+        // console.log('todo')
+
+        if ("data" in SDMConf.FromURIParameters && SDMConf.FromURIParameters.data.length > 0) {
+          console.log("SDMConf.FromURIParameters.data", SDMConf.FromURIParameters.data)
+        } else {
+          throw new Error("Bad initialization");
+        }
+
+      } else {
+
+        Array.from(input_or_false.files).forEach(function (file) {
+          if (file.name.endsWith(".yaml") || file.name.endsWith(".yml")) {
+            console.warn("TODO process YAML file first")
+          }
+        })
+
+        readFile(input_or_false, remote_files)
+      }
+    }
+
+    /**
+     * readFile. Accept either the input element (the one user select files from disk)
+     * or a list of remote files to load
+     * 
+     **/
+    async function readFile(input, remote_files) {
       // if (input.files.length > 1) {
       //   console.warn('No momento implementado apenas primiro arquivo. Ignorando demais')
       // }
@@ -1858,9 +1901,9 @@ phone
       // const start_time = new Date()
       _readfile_start_time = new Date()
 
-      Array.from(input.files).forEach(function (file) {
-        stack_left.push(file)
-      })
+      // Array.from(input.files).forEach(function (file) {
+      //   stack_left.push(file)
+      // })
 
       // Array.from(input.files).forEach(function (file) {
       function readFileMainLoop(file) {
@@ -2156,13 +2199,29 @@ phone
             //console.log(comment)
           }
         )
+      }
 
+      if (remote_files && remote_files.length > 0) {
+        // Is list of remote URLS (not from local disk)
+        console.warn("TODO")
+
+      } else if (input !== false) {
+        // Is list of files on local disk
+
+        for (let index = 0; index < input.files.length; index++) {
+          const element = input.files[index];
+
+          if (element.name.endsWith(".yaml", '.yml')) {
+            // skip configuration files
+          } else {
+            await readFileMainLoop(element)
+            files_loaded += 1
+          }
+        }
+      } else {
+        throw new Error("Bad logic");
       }
-      for (let index = 0; index < input.files.length; index++) {
-        const element = input.files[index];
-        await readFileMainLoop(element)
-        files_loaded += 1
-      }
+
       //await readFileMainLoop()
 
       let last_count = SDMData.Main.length
@@ -3181,7 +3240,10 @@ phone
     }
 
     /**
-     * 
+     * This will check if URI have paramaters, such as data files in data[]
+     * ?data[]=https://example.org/file1.geojson&data[]=https://example.org/file2.csv
+     * and if find, will populate SDMConf and trigger the initialization
+     * without user click
      **/
     const ui_init_urlparameters = () => {
 
@@ -3190,16 +3252,21 @@ phone
         let simple_conf = {
           data: []
         }
+        let trigger_init = false
 
         const searchParams = new URLSearchParams(document.location.search.replace(/^\?/, ""));
         for (const p of searchParams) {
           console.log(p);
           if (p[0] === "data[]") {
             simple_conf.data.push(p[1])
+            trigger_init = true
           }
         }
-
-        console.log('ui_init_urlparameters', simple_conf)
+        // console.log('ui_init_urlparameters', simple_conf)
+        SDMConf.FromURIParameters = simple_conf
+        if (trigger_init) {
+          readFilesOrParameters(false)
+        }
       }
       return false
     }
@@ -3274,6 +3341,8 @@ phone
       });
 
       ui_init_inputsize()
+
+      ui_init_urlparameters()
     }
 
     document.addEventListener("DOMContentLoaded", init_ui)
