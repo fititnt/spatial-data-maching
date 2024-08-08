@@ -2175,6 +2175,8 @@ phone
             });
           } else {
 
+            var input_file_index = files_loaded + 1
+
             // Last part: generic json/geojson (either remote or local)
 
             // console.log('poin')
@@ -2229,7 +2231,7 @@ phone
               let reader = new FileReader();
               reader.readAsText(file);
               // console.log('files_loaded', files_loaded, )
-              var input_file_index = files_loaded + 1
+              // var input_file_index = files_loaded + 1
               let match_score = 0
 
               reader.onload = function () {
@@ -2386,9 +2388,7 @@ phone
           // output.textContent = output_printer(SDMData.Main)
 
 
-          //console.log('compute SDMData.MainPreview  ...', SDMData.MainPreview )
           SDMData.MainPreview = SDMData.Main.slice(0, SDMConf.Preview.map)
-          //console.log('compute SDMData.MainPreview  done', SDMData.MainPreview )
           //console.log('....SDMData.MainPreview', SDMData.Main, SDMData.MainPreview, SDMConf.Preview.map)
           // console.log('WorkingInputFiles', WorkingInputFiles)
 
