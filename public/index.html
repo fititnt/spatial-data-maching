@@ -652,6 +652,7 @@ phone
      * @summary   Configurations. Interface may change it
      **/
     let SDMConf = {
+      _: null, // instance of Configuration
       Preview: {
         text: 10000,  // maximum_active_display
         map: 10000  // maximum_active_display_map
@@ -1209,6 +1210,23 @@ phone
       return false
     }
 
+    class Configuration {
+      name = 'sdm-project'
+      constructor(name, init_object) {
+        this.name = name
+        this._init_object = init_object
+      }
+
+      static object_from_yaml(yaml_text) {
+        // const yaml = require('js-yaml');
+        try {
+          const doc = jsyaml.load(yaml_text);
+          return doc
+        } catch (error) {
+          console.error(error);
+        }
+      }
+    }
 
     function match_tags(ref_props, item_props, rules, missing_ref = true, missing_target = true) {
       if (!rules || rules.length === 0) {
@@ -1867,6 +1885,14 @@ phone
         Array.from(input_or_false.files).forEach(function (file) {
           if (file.name.endsWith(".yaml") || file.name.endsWith(".yml")) {
             console.warn("TODO process YAML file first")
+
+            let reader = new FileReader();
+            reader.readAsText(file);
+            reader.onload = function () {
+              SDMConf._ = new Configuration(
+                file.name.split(".").shift(), Configuration.object_from_yaml(reader.result))
+              console.warn("SDMConf._", SDMConf._)
+            }
           }
         })
       }
@@ -2216,7 +2242,7 @@ phone
                     _parser_geojson_text(reader.result)
                   }
                 } catch (error) {
-                  console.error(file.name, error, reader.result);
+                  console.error(file.name, error, reader.result)
                   // Expected output: ReferenceError: nonExistentFunction is not defined
                   // (Note: the exact output may be browser-dependent)
                 } finally {
@@ -2292,6 +2318,7 @@ phone
 
           if (pseudo_file.name.endsWith(".yaml", '.yml')) {
             // skip configuration files
+            files_loaded += 1
           } else {
             await readFileMainLoop(null, pseudo_file)
             files_loaded += 1
@@ -2302,13 +2329,20 @@ phone
 
       } else if (input !== false) {
         // Is list of files on local disk
+        // console.log('Is list of files on local disk', input)
 
         for (let index = 0; index < input.files.length; index++) {
           const element = input.files[index];
 
-          if (element.name.endsWith(".yaml", '.yml')) {
+          // console.log('_-', element.name)
+
+          if (element.name.endsWith(".yaml") || element.name.endsWith(".yml")) {
             // skip configuration files
+            console.log('skiped', element.name)
+            files_loaded += 1
           } else {
+
+            // console.log('processing...', element.name)
             await readFileMainLoop(element)
             files_loaded += 1
           }
@@ -2336,9 +2370,9 @@ phone
         if (files_csv_finished !== files_csv_total) {
           console.log('files_csv_finished !== files_csv_total. Waiting...')
 
-        // } else if (input.files.length == files_loaded && last_count == SDMData.Main.length) {
+          // } else if (input.files.length == files_loaded && last_count == SDMData.Main.length) {
         } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length) {
-          console.log("input.files.length == files_loaded");
+          // console.log("input.files.length == files_loaded");
           clearInterval(existCondition);
 
           data_ex_count_t.textContent = (new Intl.NumberFormat(locale_number).format(_data_ex_count_t))
@@ -2352,9 +2386,9 @@ phone
           // output.textContent = output_printer(SDMData.Main)
 
 
-          console.log('compute SDMData.MainPreview  ...', SDMData.MainPreview )
+          //console.log('compute SDMData.MainPreview  ...', SDMData.MainPreview )
           SDMData.MainPreview = SDMData.Main.slice(0, SDMConf.Preview.map)
-          console.log('compute SDMData.MainPreview  done', SDMData.MainPreview )
+          //console.log('compute SDMData.MainPreview  done', SDMData.MainPreview )
           //console.log('....SDMData.MainPreview', SDMData.Main, SDMData.MainPreview, SDMConf.Preview.map)
           // console.log('WorkingInputFiles', WorkingInputFiles)
 
