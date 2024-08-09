@@ -2084,8 +2084,17 @@ phone
             files_csv_total += 1
 
             // @TODO this part of remote stream for geojsonl needs be tested
-            _file = file || await remote_file._response.text();
+            // _file = file || await remote_file._response.text();
+            // _file = file || remote_file._url
             //const file_content = await remote_file.response.text();
+
+            // console.log(_file, file, remote_file)
+            let _file = file
+            if (remote_file && remote_file.url) {
+              _file = remote_file.url
+            }
+
+            // console.log(_file, file, remote_file)
 
             // Papa.parse(bigFile, {
             // Papa.parse(file, {
