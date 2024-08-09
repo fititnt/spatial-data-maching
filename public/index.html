@@ -661,6 +661,7 @@ phone
      **/
     let SDMConf = {
       _: null, // instance of Configuration
+      // _: new Configuration(), // instance of Configuration
       Preview: {
         text: 10000,  // maximum_active_display
         map: 10000  // maximum_active_display_map
@@ -745,6 +746,10 @@ phone
         // "int_name": ["#country+name+preferred", "#country +name +preferred"],
       }
     }
+
+    // Path to internal YAML configutation file to always load at start
+    const conf_init_file = "./init.sdm.yml"
+
     // const maximum_active_display = 10000
     // const maximum_active_display_map = 10000
     // var WorkingData = []
@@ -1027,6 +1032,23 @@ phone
       return `${hrs}:${min}:${sec}.${ms}`
     }
 
+
+    // /**
+    //  * Fetch remote file. For use that mimic syncronous
+    //  * fetch:
+    //  * const mydata = await fetchRemoteFile('https://example.com/data.csv');
+    //  **/
+    // async function fetchRemoteFile(url) {
+    //   // https://stackoverflow.com/questions/24586110
+    //   // https://stackoverflow.com/questions/44735669/
+    //   return fetch(url)
+    //     // .then(response => response.json())
+    //     .then(response => response.text())
+    //     .catch((error) => {
+    //       console.log(error);
+    //     });
+    // }
+
     function parse_options(text) {
       // return object with regexes for key-value
       let result = {}
@@ -1248,18 +1270,69 @@ phone
 
     class Configuration {
       name = 'sdm-project'
-      constructor(name, init_object) {
+      conf_raw = {}
+      constructor() {
+        // this.name = name
+        // this._init_object = init_object
+      }
+
+      set name(name) {
         this.name = name
-        this._init_object = init_object
+      }
+
+      set add_config(conf_object) {
+        // const conf_object = Configuration.object_from_yaml(config)
+        this.conf_raw = { ...this.conf_raw, ...conf_object }
+      }
+
+      add_config_remote(conf_remote_url) {
+        console.log('Configuration.add_config_remote started', conf_remote_url)
+        // const conf_object = Configuration.object_from_yaml(config)
+
+        // @TODO implement sequential merge of the configutation.
+        //       now it may load in not so predictable ways.
+
+        // console.log('SDMConf._.add_config_remote', conf_remote_url)
+
+        const that = this
+
+        let response_text = fetch(conf_remote_url)
+          .then((response) => {
+            if (!response.ok) {
+              throw Error(response.statusText)
+            }
+            // return response
+            return response.text()
+          })
+          // .then(function (response) {
+          .then(function (response_text) {
+            // const response_text = response.text()
+            const conf_object = Configuration.object_from_yaml(response_text)
+            that.conf_raw = { ...that.conf_raw, ...conf_object }
+            console.log('Configuration.add_config_remote finished', conf_remote_url)
+            // console.log('..that.conf_raw2', that.conf_raw, response_text)
+
+            //return response.text()
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+
+        // if (response_text) {
+        //   const conf_object = Configuration.object_from_yaml(response_text)
+        //   this.conf_raw = { ...this.conf_raw, ...conf_object }
+        // }
       }
 
       static object_from_yaml(yaml_text) {
+        // return {"aaaa": 2222}
         // const yaml = require('js-yaml');
         try {
           const doc = jsyaml.load(yaml_text);
           return doc
         } catch (error) {
           console.error(error);
+          return {}
         }
       }
     }
@@ -1925,9 +1998,13 @@ phone
             let reader = new FileReader();
             reader.readAsText(file);
             reader.onload = function () {
-              SDMConf._ = new Configuration(
-                file.name.split(".").shift(), Configuration.object_from_yaml(reader.result))
-              console.warn("SDMConf._", SDMConf._)
+
+              SDMConf._.name = file.name.split(".").shift()
+              SDMConf._.add_config(Configuration.object_from_yaml(reader.result))
+
+              //SDMConf._ = new Configuration(
+              //  file.name.split(".").shift(), Configuration.object_from_yaml(reader.result))
+              // console.warn("SDMConf._", SDMConf._)
             }
           }
         })
@@ -3463,11 +3540,18 @@ phone
         let trigger_init = false
 
         const searchParams = new URLSearchParams(document.location.search.replace(/^\?/, ""));
+
+
         for (const p of searchParams) {
           // console.log(p);
           if (p[0] === "data[]") {
             simple_conf.data.push(p[1])
             trigger_init = true
+          }
+          if (p[0] === "conf[]") {
+            console.log('SDMConf._', SDMConf._)
+            SDMConf._.add_config_remote(p[1])
+
           }
         }
         // console.log('ui_init_urlparameters', simple_conf)
@@ -3538,6 +3622,11 @@ phone
       const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
       //memory_download.addEventListener("click", saveGeoJSONofMemory)
       // active_download.addEventListener("click", saveGeoJSONofActiveMemory)
+
+      SDMConf._ = new Configuration()
+
+      SDMConf._.add_config_remote(conf_init_file)
+
       export_download.addEventListener("click", exportFile)
 
       const export_filetype = document.querySelectorAll('input[type=radio][name=export_filetype]')
