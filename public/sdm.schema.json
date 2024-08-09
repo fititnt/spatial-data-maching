@@ -1,0 +1,18 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://sdm.etica.ai/v/0.6.0b1/sdm.schema.json",
+    "title": "Spatial Data Maching Schema",
+    "description": "...",
+    "type": "object",
+    "properties": {
+        "data": {
+            "description": "Ordened list of datasets to process",
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "minItems": 1,
+            "uniqueItems": true
+        }
+    }
+}

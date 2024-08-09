@@ -1,0 +1,11 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://sdm.etica.ai/v/0.6.0b1/data-output.schema.json",
+    "title": "(draft) Schema for GeoJSON output of SDM",
+    "description": "...",
+    "allOf": [
+        {
+            "$ref": "https://geojson.org/schema/GeoJSON.json"
+        }
+    ]
+}
