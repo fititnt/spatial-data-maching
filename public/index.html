@@ -193,6 +193,8 @@ note
 website
 url
 opening_hours
+ISO3166.*
+currency
 // Typical OSM Names wiki.osm.org/wiki/Names
 name
 name:.+
@@ -217,8 +219,8 @@ short_name:.+
 // Allow HXL Standard hashtags
 #.*
 // Allow P{numeric} and Q{numeric} as shortcut for Wikidata
-P\d+
-Q\d+
+// P\d+
+// Q\d+
 // Other
 @id</textarea>
                 <div class="form-check">
@@ -722,12 +724,25 @@ phone
         // Wikidata, alias for some place identifiers, using the P themselves
         // as part of some alternatives bellow
         // Typical, HXL Standard + Ps of Wikidata
-        "ISO3166-1:numeric": ["#country+code+num+v_m49", "#country +code +num +v_m49", "P2082", "P299"],
-        "ISO3166-1:alpha2": ["#country+code+v_iso2", "#country +code +v_iso2", "P297"],
-        "ISO3166-1:alpha3": ["#country+code+v_iso3", "#country +code +v_iso3", "P298"],
-        "start_date": ["#date+start"],
-        "currency": ["#currency+code", "#currency +code"],
-        "int_name": ["#country+name+preferred", "#country +name +preferred"],
+        "#country+code+num+v_m49": ["ISO3166-1:numeric"],
+        "#country +code +num +v_m49": ["ISO3166-1:numeric"],
+        "P299": ["ISO3166-1:numeric"],
+        // "ISO3166-1:numeric": ["#country+code+num+v_m49", "#country +code +num +v_m49", "P299"],
+        "#country+code+v_iso2": ["ISO3166-1:alpha2"],
+        "#country +code +v_iso2": ["ISO3166-1:alpha2"],
+        "P297": ["ISO3166-1:alpha2"],
+        // "ISO3166-1:alpha2": ["#country+code+v_iso2", "#country +code +v_iso2", "P297"],
+        "#country+code+v_iso3": ["ISO3166-1:alpha3"],
+        "#country +code +v_iso3": ["ISO3166-1:alpha3"],
+        "P298": ["ISO3166-1:alpha3"],
+        // "ISO3166-1:alpha3": ["#country+code+v_iso3", "#country +code +v_iso3", "P298"],
+        "#date+start": ["start_date"],
+        "#currency+code": ["currency"],
+        "#currency +code": ["currency"],
+        // "currency": ["#currency+code", "#currency +code"],
+        "#country+name+preferred": ["int_name"],
+        "#country +name +preferred": ["int_name"],
+        // "int_name": ["#country+name+preferred", "#country +name +preferred"],
       }
     }
     // const maximum_active_display = 10000
