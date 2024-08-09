@@ -592,6 +592,26 @@ phone
     </div>
   </div>
 
+  <!-- Critical error modal, start -->
+  <div class="modal fade" id="criticalErrorModal" tabindex="-1" aria-labelledby="criticalErrorModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="criticalErrorModalLabel">Critical Error</h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="critical_error_desc">
+          ...(critical error message)...
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <!-- <button type="button" class="btn btn-primary">Save changes</button> -->
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Critical error modal, end -->
   <!--
   @TODO maybe implement off-canvas https://getbootstrap.com/docs/5.3/components/offcanvas/#methods
   -->
@@ -1033,6 +1053,26 @@ phone
     }
 
 
+    /**
+     * Use to show a popup modal. Intended only for very critical errors,
+     * the type that would require reload the page and/or change
+     * configurations.
+     * 
+     **/
+    function reportErrorCritical(title, description) {
+      let title_msg = "Critical: " + title
+
+      console.error("reportErrorCritical", title, description)
+
+      document.getElementById("criticalErrorModalLabel").innerText = title_msg
+      // document.getElementById("critical_error_desc").innerText = description
+      document.getElementById("critical_error_desc").innerHTML = description
+
+      let modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('criticalErrorModal'))
+      modal.show();
+      // modal.hide();
+
+    }
     // /**
     //  * Fetch remote file. For use that mimic syncronous
     //  * fetch:
@@ -1271,6 +1311,9 @@ phone
     class Configuration {
       name = 'sdm-project'
       conf_raw = {}
+      // _promisses_count = 0
+      // _promisses = new Set([]);
+      _promisses = new Set();
       constructor() {
         // this.name = name
         // this._init_object = init_object
@@ -1295,6 +1338,7 @@ phone
         // console.log('SDMConf._.add_config_remote', conf_remote_url)
 
         const that = this
+        this._promisses.add(conf_remote_url)
 
         let response_text = fetch(conf_remote_url)
           .then((response) => {
@@ -1309,19 +1353,44 @@ phone
             // const response_text = response.text()
             const conf_object = Configuration.object_from_yaml(response_text)
             that.conf_raw = { ...that.conf_raw, ...conf_object }
+            that._promisses.delete(conf_remote_url)
             console.log('Configuration.add_config_remote finished', conf_remote_url)
             // console.log('..that.conf_raw2', that.conf_raw, response_text)
 
             //return response.text()
           })
           .catch((error) => {
-            console.log(error);
+            reportErrorCritical("Configuration loading error", `[${conf_remote_url}] failed to load`)
+            // console.log(error);
           });
+      }
 
-        // if (response_text) {
-        //   const conf_object = Configuration.object_from_yaml(response_text)
-        //   this.conf_raw = { ...this.conf_raw, ...conf_object }
-        // }
+      get remote_data() {
+        if (this.conf_raw && this.conf_raw.data && this.conf_raw.data.length > 0) {
+          return this.conf_raw.data
+        } else {
+          return null
+        }
+      }
+
+      ready(cb) {
+        const that = this
+        if (that._promisses.size === 0) {
+          console.log('Configuration().ready() already ready', that._promisses)
+          cb()
+        } else {
+          const handle = setInterval(() => {
+            if (that._promisses.size === 0) {
+              console.log('Configuration().ready() now', that._promisses)
+              clearInterval(handle);
+              cb()
+            } else {
+              console.log('Configuration().ready(), waiting...', that._promisses)
+            }
+          }, 250);
+        }
+
+
       }
 
       static object_from_yaml(yaml_text) {
@@ -1985,6 +2054,7 @@ phone
         if ("data" in SDMConf.FromURIParameters && SDMConf.FromURIParameters.data.length > 0) {
           // console.log("SDMConf.FromURIParameters.data", SDMConf.FromURIParameters.data)
           remote_files = SDMConf.FromURIParameters.data
+          // SDMConf._.add_config_remote
         } else {
           throw new Error("Bad initialization");
         }
@@ -2010,7 +2080,17 @@ phone
         })
       }
 
-      readFile(input_or_false, remote_files)
+      console.log('SDMConf._.ready(console.log)')
+      // SDMConf._.ready(console.log)
+
+      SDMConf._.ready(function () {
+        if (SDMConf._.remote_data) {
+          readFile(input_or_false, SDMConf._.remote_data)
+        } else {
+          readFile(input_or_false, remote_files)
+        }
+      })
+
     }
 
     /**
