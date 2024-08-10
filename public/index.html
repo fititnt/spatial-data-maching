@@ -1311,9 +1311,9 @@ phone
     class Configuration {
       name = 'sdm-project'
       conf_raw = {}
-      // _promisses_count = 0
-      // _promisses = new Set([]);
-      _promisses = new Set();
+      // _promises_count = 0
+      // _promises = new Set([]);
+      _promises = new Set();
       constructor() {
         // this.name = name
         // this._init_object = init_object
@@ -1323,13 +1323,22 @@ phone
         this.name = name
       }
 
-      set add_config(conf_object) {
-        // const conf_object = Configuration.object_from_yaml(config)
-        this.conf_raw = { ...this.conf_raw, ...conf_object }
+      // set add_config(conf_object, uid = null) {
+      add_config(conf_object, uid_promise = null) {
+        if (!conf_object && uid_promise) {
+          this._promises.add(uid_promise)
+        } else {
+          // const conf_object = Configuration.object_from_yaml(config)
+          this.conf_raw = { ...this.conf_raw, ...conf_object }
+          if (uid_promise) {
+            this._promises.delete(uid_promise)
+          }
+        }
       }
 
-      add_config_remote(conf_remote_url) {
-        console.log('Configuration.add_config_remote started', conf_remote_url)
+      add_config_remote(conf_remote_url, uid_promise = null) {
+
+        console.log('Configuration.add_config_remote started', conf_remote_url, uid_promise)
         // const conf_object = Configuration.object_from_yaml(config)
 
         // @TODO implement sequential merge of the configutation.
@@ -1338,7 +1347,17 @@ phone
         // console.log('SDMConf._.add_config_remote', conf_remote_url)
 
         const that = this
-        this._promisses.add(conf_remote_url)
+
+        if (!conf_remote_url && uid_promise) {
+
+          // This is just a hint for promisse we dont know content yet
+          this._promises.add(uid_promise)
+          return true
+        }
+
+
+        // this._promises.add(conf_remote_url)
+        this._promises.add(uid_promise || conf_remote_url)
 
         let response_text = fetch(conf_remote_url)
           .then((response) => {
@@ -1353,7 +1372,8 @@ phone
             // const response_text = response.text()
             const conf_object = Configuration.object_from_yaml(response_text)
             that.conf_raw = { ...that.conf_raw, ...conf_object }
-            that._promisses.delete(conf_remote_url)
+            // that._promises.delete(conf_remote_url)
+            that._promises.delete(uid_promise || conf_remote_url)
             console.log('Configuration.add_config_remote finished', conf_remote_url)
             // console.log('..that.conf_raw2', that.conf_raw, response_text)
 
@@ -1366,6 +1386,8 @@ phone
       }
 
       get remote_data() {
+
+        console.log('...remote_data conf_raw', this.conf_raw)
         if (this.conf_raw && this.conf_raw.data && this.conf_raw.data.length > 0) {
           return this.conf_raw.data
         } else {
@@ -1374,23 +1396,24 @@ phone
       }
 
       ready(cb) {
+
+        console.log('Configuration().ready() called', cb, this._promises)
+
         const that = this
-        if (that._promisses.size === 0) {
-          console.log('Configuration().ready() already ready', that._promisses)
+        if (that._promises.size === 0) {
+          console.log('Configuration().ready() already ready', that._promises)
           cb()
         } else {
           const handle = setInterval(() => {
-            if (that._promisses.size === 0) {
-              console.log('Configuration().ready() now', that._promisses)
+            if (that._promises.size === 0) {
+              console.log('Configuration().ready() now', that._promises)
               clearInterval(handle);
               cb()
             } else {
-              console.log('Configuration().ready(), waiting...', that._promisses)
+              console.log('Configuration().ready(), waiting...', that._promises)
             }
           }, 250);
         }
-
-
       }
 
       static object_from_yaml(yaml_text) {
@@ -2041,10 +2064,6 @@ phone
      * Other cases: run as usual
      **/
     function readFilesOrParameters(input_or_false) {
-      // console.log('readFilesOrParameters', this)
-      // console.log('readFilesOrParameters', input_or_false)
-      // console.log('readFilesOrParameters', input_or_false.tag)
-      // console.log('readFilesOrParameters', input_or_false.id)
 
       let remote_files = []
 
@@ -2055,22 +2074,26 @@ phone
           // console.log("SDMConf.FromURIParameters.data", SDMConf.FromURIParameters.data)
           remote_files = SDMConf.FromURIParameters.data
           // SDMConf._.add_config_remote
+        } else if ("conf" in SDMConf.FromURIParameters && SDMConf.FromURIParameters.conf.length > 0) {
+          // Nothing here
         } else {
-          throw new Error("Bad initialization");
+          throw new Error("Bad initialization, Neither is file upload or conf[]/data[] by URL parameters");
         }
 
       } else {
 
         Array.from(input_or_false.files).forEach(function (file) {
           if (file.name.endsWith(".yaml") || file.name.endsWith(".yml")) {
-            console.warn("TODO process YAML file first")
+            // console.warn("TODO process YAML file first")
 
+            const uid_promisse = file.name
+            SDMConf._.add_config(false, uid_promisse)
             let reader = new FileReader();
             reader.readAsText(file);
             reader.onload = function () {
 
               SDMConf._.name = file.name.split(".").shift()
-              SDMConf._.add_config(Configuration.object_from_yaml(reader.result))
+              SDMConf._.add_config(Configuration.object_from_yaml(reader.result), uid_promisse)
 
               //SDMConf._ = new Configuration(
               //  file.name.split(".").shift(), Configuration.object_from_yaml(reader.result))
@@ -2084,9 +2107,13 @@ phone
       // SDMConf._.ready(console.log)
 
       SDMConf._.ready(function () {
-        if (SDMConf._.remote_data) {
+        console.log('SDMConf._.ready SDMConf._.remote_data', SDMConf._.remote_data)
+        if (!!SDMConf._.remote_data) {
           readFile(input_or_false, SDMConf._.remote_data)
         } else {
+          if (input_or_false !== false && remote_files.length === 0) {
+            reportErrorCritical("No datasets to process", "Even if you loaded configurations, no dataset found on configurations/upload/URL parameters. Please restart.")
+          }
           readFile(input_or_false, remote_files)
         }
       })
@@ -3615,7 +3642,8 @@ phone
       if (document.location.search.length > 1) {
 
         let simple_conf = {
-          data: []
+          data: [],
+          conf: [],
         }
         let trigger_init = false
 
@@ -3629,17 +3657,21 @@ phone
             trigger_init = true
           }
           if (p[0] === "conf[]") {
+            simple_conf.conf.push(p[1])
             console.log('SDMConf._', SDMConf._)
             SDMConf._.add_config_remote(p[1])
+            trigger_init = true
 
           }
         }
+
         // console.log('ui_init_urlparameters', simple_conf)
         SDMConf.FromURIParameters = simple_conf
         if (trigger_init) {
           readFilesOrParameters(false)
         }
       }
+
       return false
     }
 
