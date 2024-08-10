@@ -674,9 +674,9 @@ phone
         "target_items_no_pos": 0,
         "target_items_no_tags": 0,
       },
-      _SourceFilesAll:[],
-      _SourceFilesStarted:[],
-      _SourceFilesFinished:[],
+      _SourceFilesAll: new Set(),
+      _SourceFilesStarted: new Set(),
+      _SourceFilesFinished: new Set()
     }
 
     /**
@@ -1348,7 +1348,7 @@ phone
 
       add_config_remote(conf_remote_url, uid_promise = null) {
 
-        console.log('Configuration.add_config_remote started', conf_remote_url, uid_promise)
+        // console.log('Configuration.add_config_remote started', conf_remote_url, uid_promise)
         // const conf_object = Configuration.object_from_yaml(config)
 
         // @TODO implement sequential merge of the configutation.
@@ -1384,7 +1384,7 @@ phone
             that.conf_raw = { ...that.conf_raw, ...conf_object }
             // that._promises.delete(conf_remote_url)
             that._promises.delete(uid_promise || conf_remote_url)
-            console.log('Configuration.add_config_remote finished', conf_remote_url)
+            // console.log('Configuration.add_config_remote finished', conf_remote_url)
             // console.log('..that.conf_raw2', that.conf_raw, response_text)
 
             //return response.text()
@@ -1397,7 +1397,7 @@ phone
 
       get remote_data() {
 
-        console.log('...remote_data conf_raw', this.conf_raw)
+        // console.log('...remote_data conf_raw', this.conf_raw)
         if (this.conf_raw && this.conf_raw.data && this.conf_raw.data.length > 0) {
           return this.conf_raw.data
         } else {
@@ -1407,22 +1407,22 @@ phone
 
       ready(cb) {
 
-        console.log('Configuration().ready() called', cb, this._promises)
+        // console.log('Configuration().ready() called', cb, this._promises)
 
         const that = this
         if (that._promises.size === 0) {
-          console.log('Configuration().ready() already ready', that._promises)
+          // console.log('Configuration().ready() already ready', that._promises)
           cb()
         } else {
           const handle = setInterval(() => {
             if (that._promises.size === 0) {
-              console.log('Configuration().ready() now', that._promises)
+              // console.log('Configuration().ready() now', that._promises)
               clearInterval(handle);
               cb()
             } else {
-              console.log('Configuration().ready(), waiting...', that._promises)
+              // console.log('Configuration().ready(), waiting...', that._promises)
             }
-          }, 250);
+          }, 100);
         }
       }
 
@@ -2084,6 +2084,12 @@ phone
           // console.log("SDMConf.FromURIParameters.data", SDMConf.FromURIParameters.data)
           remote_files = SDMConf.FromURIParameters.data
           // SDMConf._.add_config_remote
+
+          console.error('SDMConf.FromURIParameters', SDMConf.FromURIParameters)
+
+          // SDMData._SourceFilesAll = 
+
+          SDMConf.FromURIParameters.data.forEach(item => SDMData._SourceFilesAll.add(item))
         } else if ("conf" in SDMConf.FromURIParameters && SDMConf.FromURIParameters.conf.length > 0) {
           // Nothing here
         } else {
@@ -2112,16 +2118,29 @@ phone
           } else {
             //Anything not a configuration file is assumed to be data file
             SDMConf._.add_data_file(file, true)
+
+            // console.log('instanceof File', file instanceof File)
+            SDMData._SourceFilesAll.add("file://" + file.name)
           }
         })
       }
 
-      console.log('SDMConf._.ready(console.log)')
+      // console.log('SDMConf._.ready(console.log)')
       // SDMConf._.ready(console.log)
 
       SDMConf._.ready(function () {
-        console.log('SDMConf._.ready SDMConf._.remote_data', SDMConf._.remote_data)
+
+        // SDMData._SourceFilesAll = SDMConf.FromURIParameters.data
+
+        // SDMData._SourceFilesAll.add
+
+
+        // console.log('SDMConf._.ready SDMConf._.remote_data', SDMConf._.remote_data)
         if (!!SDMConf._.remote_data) {
+          SDMConf._.remote_data.forEach(function(item) {
+            SDMData._SourceFilesAll.add(item)
+          })
+
           readFile(input_or_false, SDMConf._.remote_data)
         } else {
           if (input_or_false !== false && remote_files.length === 0) {
@@ -2177,10 +2196,28 @@ phone
           file, remote_file, cb
         ) {
 
+          let is_file_upload = true
+          let data_file_uid = ""
+
 
           if (!file) {
             // merely to mimic file.name
             file = remote_file
+          }
+
+          if (!file.name.endsWith(".yml") && !file.name.endsWith(".yaml")) {
+            // console.log(')))000000file', file)
+            // console.log(')))000000file', typeof file)
+            // if (file instanceof File) {
+            // if (input && input.files) {
+            // if (!file.name.startsWith("http")) {
+            // if (!file.name.startsWith("http")) {
+            if (!file.url) {
+              data_file_uid = "file://" + file.name
+            } else {
+              data_file_uid = file.url
+            }
+            SDMData._SourceFilesStarted.add(data_file_uid)
           }
 
           if (file.name.endsWith(".yml") || file.name.endsWith(".yaml")) {
@@ -2310,6 +2347,7 @@ phone
 
                   return new Promise((resolve, reject) => {
                     cb(`Loaded ${file.name}`)
+                    SDMData._SourceFilesFinished.add(data_file_uid)
                     resolve()
                   })
                 },
@@ -2338,7 +2376,7 @@ phone
               _download = true
             }
 
-            console.log('########papaparse', _file, remote_file)
+            // console.log('########papaparse', _file, remote_file)
 
             // Papa.parse(bigFile, {
             // Papa.parse(file, {
@@ -2429,6 +2467,7 @@ phone
                 files_csv_finished += 1
                 return new Promise((resolve, reject) => {
                   cb(`Loaded ${file.name}`)
+                  SDMData._SourceFilesFinished.add(data_file_uid)
                   resolve()
                 })
               }
@@ -2483,6 +2522,7 @@ phone
               } finally {
                 return new Promise((resolve, reject) => {
                   cb(`Loaded ${file.name}`)
+                  SDMData._SourceFilesFinished.add(data_file_uid)
                   resolve()
                 })
               }
@@ -2510,6 +2550,7 @@ phone
                 } finally {
                   return new Promise((resolve, reject) => {
                     cb(`Loaded ${file.name}`)
+                    SDMData._SourceFilesFinished.add(data_file_uid)
                     resolve()
                   })
                 }
@@ -2618,11 +2659,6 @@ phone
         throw new Error("Bad logic");
       }
 
-      //await readFileMainLoop()
-
-
-      console.log("ZZZZZZZZ")
-
       let last_count = SDMData.Main.length
 
       let existCondition = setInterval(function () {
@@ -2644,7 +2680,7 @@ phone
         } else {
           _totalfiles = remote_files.length
 
-          console.log('remote_files.lengthremote_files.length', remote_files)
+          // console.log('remote_files.lengthremote_files.length', remote_files)
         }
 
         // console.log('SDMData.Main.length', SDMData.Main.length)
@@ -2654,7 +2690,8 @@ phone
           console.log('files_csv_finished !== files_csv_total. Waiting...')
 
           // } else if (input.files.length == files_loaded && last_count == SDMData.Main.length) {
-        } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length) {
+        // } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length) {
+        } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length || SDMData._SourceFilesAll.length === SDMData._SourceFilesFinished.length) {
           // console.log("input.files.length == files_loaded");
           clearInterval(existCondition);
 
@@ -3689,7 +3726,7 @@ phone
           }
           if (p[0] === "conf[]") {
             simple_conf.conf.push(p[1])
-            console.log('SDMConf._', SDMConf._)
+            // console.log('SDMConf._', SDMConf._)
             SDMConf._.add_config_remote(p[1])
             trigger_init = true
 
