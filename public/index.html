@@ -673,7 +673,10 @@ phone
         "target_items": 0,
         "target_items_no_pos": 0,
         "target_items_no_tags": 0,
-      }
+      },
+      _SourceFilesAll:[],
+      _SourceFilesStarted:[],
+      _SourceFilesFinished:[],
     }
 
     /**
@@ -1314,6 +1317,7 @@ phone
       // _promises_count = 0
       // _promises = new Set([]);
       _promises = new Set();
+      _fileupload = new Set();
       constructor() {
         // this.name = name
         // this._init_object = init_object
@@ -1321,6 +1325,12 @@ phone
 
       set name(name) {
         this.name = name
+      }
+
+      add_data_file(url_or_fileupload, is_upload) {
+        if (is_upload) {
+          this._fileupload.add(url_or_fileupload)
+        }
       }
 
       // set add_config(conf_object, uid = null) {
@@ -2099,6 +2109,9 @@ phone
               //  file.name.split(".").shift(), Configuration.object_from_yaml(reader.result))
               // console.warn("SDMConf._", SDMConf._)
             }
+          } else {
+            //Anything not a configuration file is assumed to be data file
+            SDMConf._.add_data_file(file, true)
           }
         })
       }
@@ -2169,17 +2182,12 @@ phone
             // merely to mimic file.name
             file = remote_file
           }
-          // console.log('processIndividualFile', file, files_loaded)
-          // @TODO change to work with files over 2 GB
-          //       See https://stackoverflow.com/questions/73137555/filereader-domexception-unable-to-convert-blob-to-base64-string
 
-          // 43_RS.geojsonl (2.8GB )
-          // 6.456.747
-          // 6.455.418
-          //
-          // ~1300 linhas a menos
-          if (file.name.endsWith(".geojsonl")) {
-            console.log("Note: geojsonl still imperfect implementation")
+          if (file.name.endsWith(".yml") || file.name.endsWith(".yaml")) {
+            // skip. already done earlier
+
+          } else if (file.name.endsWith(".geojsonl")) {
+            // console.log("Note: geojsonl still imperfect implementation")
 
             let _last_part = ''
             let _separator = null
@@ -2329,6 +2337,8 @@ phone
               _file = remote_file.url
               _download = true
             }
+
+            console.log('########papaparse', _file, remote_file)
 
             // Papa.parse(bigFile, {
             // Papa.parse(file, {
@@ -2568,12 +2578,17 @@ phone
             console.error(error.message);
           }
 
-          if (pseudo_file.name.endsWith(".yaml", '.yml')) {
+          if (pseudo_file.name.endsWith(".yaml") || pseudo_file.name.endsWith(".yml")) {
             // skip configuration files
-            files_loaded += 1
+            // files_loaded += 1
           } else {
             await readFileMainLoop(null, pseudo_file)
             files_loaded += 1
+
+            // if (!pseudo_file.name.endsWith(".csv") && !pseudo_file.name.endsWith(".tsv")) {
+            //   // CSV/TSV have its own counter
+            //   files_loaded += 1
+            // }
           }
 
         }
@@ -2605,6 +2620,9 @@ phone
 
       //await readFileMainLoop()
 
+
+      console.log("ZZZZZZZZ")
+
       let last_count = SDMData.Main.length
 
       let existCondition = setInterval(function () {
@@ -2612,8 +2630,21 @@ phone
         if (input.files) {
           // This will fail if have any YAML
           _totalfiles = input.files.length
+
+          for (let index = 0; index < input.files.length; index++) {
+            const element = input.files[index];
+            if (element.name.endsWith(".yaml", '.yml')) {
+              _totalfiles = _totalfiles - 1
+            }
+          }
+
+          // input.files.forEach(element => {
+
+          // });
         } else {
           _totalfiles = remote_files.length
+
+          console.log('remote_files.lengthremote_files.length', remote_files)
         }
 
         // console.log('SDMData.Main.length', SDMData.Main.length)
@@ -2668,7 +2699,7 @@ phone
           console.log(`readFile (all files + processing) end: took: ${diff_read_all}`)
 
         } else {
-          console.log('waiting input.files.length == files_loaded and last_count vs SDMData.Main.length stabilize', _totalfiles, files_loaded, last_count, SDMData.Main.length)
+          console.log('waiting input.files.length == files_loaded and last_count vs SDMData.Main.length stabilize', _totalfiles, files_csv_finished, files_loaded, last_count, SDMData.Main.length)
         }
 
         last_count = SDMData.Main.length

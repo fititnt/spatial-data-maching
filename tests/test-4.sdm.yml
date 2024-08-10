@@ -3,7 +3,7 @@
 data:
   - https://sdmtestdata.etica.ai/d/countries.001.osm.geojson
   - https://sdmtestdata.etica.ai/d/countries.001.wikidata.tsv
-  - https://sdmtestdata.etica.ai/d/countries-territories-unocha.001.hxl.csv
+  # - https://sdmtestdata.etica.ai/d/countries-territories-unocha.001.hxl.csv
 _mergekeys:
   - wikidata
   - ISO3166-1:numeric
