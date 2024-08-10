@@ -30,3 +30,4 @@ http://git.workspace.localhost/fititnt/spatial-data-maching/public/?conf[]=https
   - The data files are divided in 2 configuration files
   - Currently it is considering only the lastest data
   - Maybe merge the datafiles? Or make it configurable?
+- https://sdm.etica.ai/v/0.6.0b2/?data[]=https://sdmtestdata.etica.ai/d/countries.001.osm.geojson&data[]=https://sdmtestdata.etica.ai/d/countries.001.wikidata.tsv&data[]=https://sdmtestdata.etica.ai/d/countries-territories-unocha.001.hxl.csv

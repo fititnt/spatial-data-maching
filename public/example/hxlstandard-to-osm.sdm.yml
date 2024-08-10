@@ -1,0 +1,13 @@
+import_aliases:
+  # __hxl:
+  - id: hxlstandard_to_osm
+    aliases:
+      # HXLStandard mapping, incomplete list
+      - \#country+code+num+v_m49|ISO3166-1:numeric
+      - \#country+code+v_iso2|ISO3166-1:alpha2
+      - \country +code +v_iso3|ISO3166-1:alpha3
+      - \#date+start|start_date
+      - \#currency+code|currency
+      # the Names aren't trivial to make a global renamer
+      - \#country+name+preferred|int_name
+      - \#country +name +preferred|int_name

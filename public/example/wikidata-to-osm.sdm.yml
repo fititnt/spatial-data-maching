@@ -1,0 +1,13 @@
+import_aliases:
+  # __wdata:
+  - id: wikidata_to_osm
+    aliases:
+      # Wikidata related (already on init.sdm.yml)
+      - itemLabel|name
+      - item|wikidata|helper_wikidata_q()
+      - loc|coordinate_location|helper_point()
+      - geo|coordinate_location|helper_point()
+      # Bellow is very limited list
+      - P299|ISO3166-1:numeric
+      - P297|ISO3166-1:alpha2
+      - P298|ISO3166-1:alpha3

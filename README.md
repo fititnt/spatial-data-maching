@@ -14,6 +14,30 @@ _to be documented_
 The [JSON-Schema](https://json-schema.org/) for the latest version is available at [public/sdm.schema.json](public/sdm.schema.json).
 This schema can be used to strictly document and validate configuration files, such as examples on the filter tests/.
 
+## Quickstart to internals
+
+After data is imported into memory, it's organized similar to a GeoJSON feature. Two extra references:
+
+- `@fid`: file identifier (unique). A sequential number, starting from 1, by default based on the order of import
+- `@tid`: items identifier (unique). A sequential number, starting from 1, based on order of files **and** order of itens in the files.
+
+
+<!--
+
+@TODO implement these shortcuts to create implicit queries to match objects
+
+
+## MS "Match Strategy"
+### For strict strategy, terms after 2nd // are keys, split by |
+//MS//website
+
+//MS//addr:street
+//MS//addr:housenumber
+
+//MS//addr:street|addr:housenumber|amenity
+//MS//wikidata
+
+-->
 
 ## Quickstart to debug
 

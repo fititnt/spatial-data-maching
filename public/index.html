@@ -126,7 +126,8 @@
                   data-bs-title="Regex-enabled case-sensitive list of field keys to, if exist in source data, be imported. (this means properties not listed here will NOT be loaded into the memory). Tip: you can use '.+' to allow anything">
                   🛈
                 </button>
-                <textarea class="form-control" placeholder="" id="data_ex_fields_exporter" style="height: 200px">// Most frequent at the top
+                <textarea class="form-control" data-conf="import_keys.global" placeholder=""
+                  id="data_ex_fields_exporter" style="height: 200px">// Most frequent at the top
 addr:.*
 nohousenumber
 name
@@ -239,7 +240,8 @@ short_name:.+
                   data-bs-title="Renamer for very common column names. Syntax: original_field|osm-schema-field|optional_function()">
                   🛈
                 </button>
-                <textarea class="form-control" placeholder="" id="importer_aliases" style="height: 200px" disabled>//Wikidata related
+                <textarea class="form-control" data-conf="import_aliases.global" placeholder="" id="importer_aliases"
+                  style="height: 200px" disabled>//Wikidata related
 itemLabel|name
 item|wikidata|helper_wikidata_q()
 loc|coordinate_location|helper_point()
@@ -772,6 +774,10 @@ phone
 
     // Path to internal YAML configutation file to always load at start
     const conf_init_file = "./init.sdm.yml"
+    const conf_init_extras = [
+      "./example/hxlstandard-to-osm.sdm.yml",
+      "./example/wikidata-to-osm.sdm.yml",
+    ]
 
     // const maximum_active_display = 10000
     // const maximum_active_display_map = 10000
@@ -946,6 +952,8 @@ phone
      * 
      **/
     function _parse_options_even_more_regex(key, regex_str) {
+
+      // @TODO move this to configuration files
       let names = [
         'name', 'old_name', 'alt_name', 'official_name'
       ]
@@ -1055,6 +1063,37 @@ phone
       return `${hrs}:${min}:${sec}.${ms}`
     }
 
+    /**
+    * Performs a deep merge of objects and returns new object. Does not modify
+    * objects (immutable) and merges arrays via concatenation.
+    * 
+    * @author https://stackoverflow.com/a/48218209/894546
+    *
+    * @param {...object} objects - Objects to merge
+    * @returns {object} New object with merged key/values
+    */
+    function mergeDeep(...objects) {
+      const isObject = obj => obj && typeof obj === 'object';
+
+      return objects.reduce((prev, obj) => {
+        Object.keys(obj).forEach(key => {
+          const pVal = prev[key];
+          const oVal = obj[key];
+
+          if (Array.isArray(pVal) && Array.isArray(oVal)) {
+            prev[key] = pVal.concat(...oVal);
+          }
+          else if (isObject(pVal) && isObject(oVal)) {
+            prev[key] = mergeDeep(pVal, oVal);
+          }
+          else {
+            prev[key] = oVal;
+          }
+        });
+
+        return prev;
+      }, {});
+    }
 
     /**
      * Use to show a popup modal. Intended only for very critical errors,
@@ -1339,7 +1378,12 @@ phone
           this._promises.add(uid_promise)
         } else {
           // const conf_object = Configuration.object_from_yaml(config)
-          this.conf_raw = { ...this.conf_raw, ...conf_object }
+          // this.conf_raw = { ...this.conf_raw, ...conf_object }
+
+          this.conf_raw = mergeDeep(this.conf_raw, conf_object)
+          // const temp = mergeDeep(this.conf_raw, conf_object)
+
+          // this.conf_raw = temp
           if (uid_promise) {
             this._promises.delete(uid_promise)
           }
@@ -1348,7 +1392,7 @@ phone
 
       add_config_remote(conf_remote_url, uid_promise = null) {
 
-        // console.log('Configuration.add_config_remote started', conf_remote_url, uid_promise)
+        console.log('Configuration.add_config_remote started', conf_remote_url, uid_promise)
         // const conf_object = Configuration.object_from_yaml(config)
 
         // @TODO implement sequential merge of the configutation.
@@ -1381,7 +1425,9 @@ phone
           .then(function (response_text) {
             // const response_text = response.text()
             const conf_object = Configuration.object_from_yaml(response_text)
-            that.conf_raw = { ...that.conf_raw, ...conf_object }
+            // that.conf_raw = { ...that.conf_raw, ...conf_object }
+            that.conf_raw = mergeDeep(that.conf_raw, conf_object)
+
             // that._promises.delete(conf_remote_url)
             that._promises.delete(uid_promise || conf_remote_url)
             // console.log('Configuration.add_config_remote finished', conf_remote_url)
@@ -2085,7 +2131,7 @@ phone
           remote_files = SDMConf.FromURIParameters.data
           // SDMConf._.add_config_remote
 
-          console.error('SDMConf.FromURIParameters', SDMConf.FromURIParameters)
+          // console.error('SDMConf.FromURIParameters', SDMConf.FromURIParameters)
 
           // SDMData._SourceFilesAll = 
 
@@ -2137,7 +2183,7 @@ phone
 
         // console.log('SDMConf._.ready SDMConf._.remote_data', SDMConf._.remote_data)
         if (!!SDMConf._.remote_data) {
-          SDMConf._.remote_data.forEach(function(item) {
+          SDMConf._.remote_data.forEach(function (item) {
             SDMData._SourceFilesAll.add(item)
           })
 
@@ -2690,7 +2736,7 @@ phone
           console.log('files_csv_finished !== files_csv_total. Waiting...')
 
           // } else if (input.files.length == files_loaded && last_count == SDMData.Main.length) {
-        // } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length) {
+          // } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length) {
         } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length || SDMData._SourceFilesAll.length === SDMData._SourceFilesFinished.length) {
           // console.log("input.files.length == files_loaded");
           clearInterval(existCondition);
@@ -3808,6 +3854,9 @@ phone
       SDMConf._.add_config_remote(conf_init_file)
 
       export_download.addEventListener("click", exportFile)
+      if (conf_init_extras && conf_init_extras.length > 0) {
+        conf_init_extras.map(item => SDMConf._.add_config_remote(item))
+      }
 
       const export_filetype = document.querySelectorAll('input[type=radio][name=export_filetype]')
       export_filetype.forEach(function (element) {

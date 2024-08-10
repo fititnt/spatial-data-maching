@@ -2,105 +2,160 @@
 # @TODO make this actually be a file loaded at early stage of the page
 
 import_aliases:
-  global:
-    # Wikidata related
-    - itemLabel|name
-    - item|wikidata|helper_wikidata_q()
-    - loc|coordinate_location|helper_point()
-    - geo|coordinate_location|helper_point()
+  - id: global
+    aliases:
+      # Wikidata related
+      - itemLabel|name
+      - item|wikidata|helper_wikidata_q()
+      - loc|coordinate_location|helper_point()
+      - geo|coordinate_location|helper_point()
+
 import_keys:
-  - // Most frequent at the top
-  - addr:.*
-  - nohousenumber
-  - name
-  - source
-  - // Incompleted Map features https://wiki.osm.org/wiki/Map_features
-  - aerialway
-  - amenity
-  - barrier
-  - boundary
-  - building
-  - building:.+
-  - craft
-  - emergency
-  - geological
-  - healthcare
-  - highway
-  - cycleway
-  - busway
-  - parking
-  - parking:.+
-  - historic
-  - leisure
-  - landuse
-  - leisure
-  - man_made
-  - military
-  - natural
-  - office
-  - place
-  - power
-  - line
-  - public_transport
-  - railway
-  - bridge
-  - tunnel
-  - route
-  - shop
-  - sport
-  - telecom
-  - tourism
-  - water
-  - // (...)
-  - // Subtags of https://wiki.osm.org/wiki/Map_features
-  - police
-  - government
-  - service
-  - // Contact-like data, (good for detect matches)
-  - contact:.+
-  - phone
-  - email
-  - // Reference-like and external identifiers (good for detect matches)
-  - ref
-  - ref:.+
-  - wikidata
-  - wikipedia
-  - // Other metadata
-  - source
-  - source:.+
-  - operator
-  - population
-  - embankment
-  - fixme
-  - note
-  - website
-  - url
-  - opening_hours
-  - // Typical OSM Names wiki.osm.org/wiki/Names
-  - name
-  - name:.+
-  - alt_name
-  - alt_name:.+
-  - int_name
-  - int_name:.+
-  - log_name
-  - loc_name:.+
-  - nat_name
-  - nat_name.+
-  - official_name
-  - official_name:.+
-  - old_name
-  - old_name:.+
-  - ref_name
-  - ref_name:.+
-  - reg_name
-  - reg_name:.+
-  - short_name
-  - short_name:.+
-  # // Allow HXL Standard hashtags
-  - "#.*"
-  # // Allow P{numeric} and Q{numeric} as shortcut for Wikidata
-  - P\d+
-  - Q\d+
-  # // Other
-  - "@id"
+  # __global:
+  - id: global
+    type: global
+    keys:
+      - // Most frequent at the top
+      - addr:.*
+      - nohousenumber
+      - name
+      - source
+      - // Incompleted Map features https://wiki.osm.org/wiki/Map_features
+      - aerialway
+      - amenity
+      - barrier
+      - boundary
+      - building
+      - building:.+
+      - craft
+      - emergency
+      - geological
+      - healthcare
+      - highway
+      - cycleway
+      - busway
+      - parking
+      - parking:.+
+      - historic
+      - leisure
+      - landuse
+      - leisure
+      - man_made
+      - military
+      - natural
+      - office
+      - place
+      - power
+      - line
+      - public_transport
+      - railway
+      - bridge
+      - tunnel
+      - route
+      - shop
+      - sport
+      - telecom
+      - tourism
+      - water
+      - // (...)
+      - // Subtags of https://wiki.osm.org/wiki/Map_features
+      - police
+      - government
+      - service
+      - // Contact-like data, (good for detect matches)
+      - contact:.+
+      - phone
+      - email
+      - // Reference-like and external identifiers (good for detect matches)
+      - ref
+      - ref:.+
+      - wikidata
+      - wikipedia
+      - // Other metadata
+      - source
+      - source:.+
+      - operator
+      - population
+      - embankment
+      - fixme
+      - note
+      - website
+      - url
+      - opening_hours
+      - // Typical OSM Names wiki.osm.org/wiki/Names
+      - name
+      - name:.+
+      - alt_name
+      - alt_name:.+
+      - int_name
+      - int_name:.+
+      - log_name
+      - loc_name:.+
+      - nat_name
+      - nat_name.+
+      - official_name
+      - official_name:.+
+      - old_name
+      - old_name:.+
+      - ref_name
+      - ref_name:.+
+      - reg_name
+      - reg_name:.+
+      - short_name
+      - short_name:.+
+      # // Allow HXL Standard hashtags
+      - "#.*"
+      # // Allow P{numeric} and Q{numeric} as shortcut for Wikidata
+      - P\d+
+      - Q\d+
+      # // Other
+      - "@id"
+
+import_keys_autodetect:
+  # We assume geodetic datum WGS 84
+  # latitude/longitude are mostly used when importing from CSVs
+  latitude:
+    - "@latitude"
+    - "latitude"
+    - "Latitude"
+    - "LATITUDE"
+    - "@lat"
+    - "@y"
+    - "Y"
+    - "y"
+    - "#geo +lat"
+    - "#geo+lat"
+  longitude:
+    - "@longitude"
+    - "longitude"
+    - "Longitude"
+    - "LONGITUDE"
+    - "@lon"
+    - "@x"
+    - "X"
+    - "x"
+    - "#geo +lon"
+    - "#geo+lon"
+  mixed_point:
+    - coordinate_location
+    - geometry
+
+match_strategy:
+  - name: distance-only-100m
+    distance-cutoff: 100
+  - name: distance-100m-or-adress
+    distance-or: 100
+    keys-strict:
+      - - addr:street
+        - addr:housenumber
+      - - nohousenumber
+        - addr:street
+      - addr:housenumber
+
+  - name: distance-100m
+    distance-or: 100
+    keys-strict:
+      - wikidata
+      - ref:vatin
+      - - addr:street
+        - addr:housenumber
