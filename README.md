@@ -18,9 +18,45 @@ This schema can be used to strictly document and validate configuration files, s
 
 After data is imported into memory, it's organized similar to a GeoJSON feature. Two extra references:
 
-- `@fid`: file identifier (unique). A sequential number, starting from 1, by default based on the order of import
-- `@tid`: items identifier (unique). A sequential number, starting from 1, based on order of files **and** order of itens in the files.
+- `@did`: dataset identifier (unique).
+  - A sequential number, starting from 1, by default based on the order of import
+- `@fid`: feature identifier (unique).
+  - A sequential number, starting from 1, based on order of files **and** order of items in the files.
+- `@mgi`: pattern matching identifier group.
+  - For an given set of maching strategy, calculate for the entire target dataset. All features with same code are considered be the same group.
+- `@mmi`: manual maching identifier.
+  - It's similar to `@mgi`, however with manual explicit matching. May contradict the inference of active strategy maching
 
+For attributes (when a feature have attributes added or changed from the original)
+- `@msa`: metadata of source of an attribute.
+
+<!--
+
+```
+@mas=opening_hours@(=@did=1@fid=2345|~@did=4@fid=1357)$@fee@(..)$ref:vatin@(...)
+Explanation= 
+> tag opening_hours
+> Igual @tid=2345 (arquivo fonte 1)
+> Muito semelhante, mas não idêntico @fid=1357 do @did=4
+> tag fee ...
+> tag ref:vatin
+```
+or
+
+@mas=opening_hours@(=1:2345|~=4:1357)$@fee@(..)$ref:vatin@(...)
+Explanation= 
+> tag opening_hours
+> strict same as @fid=2345 from dataset @did=1)
+> Muito semelhante, mas não idêntico @fid=1357 do @did=4
+> tag fee ...
+> tag ref:vatin
+```
+
+-->
+
+each feature is calculated, and the ones with the same group are considered be from the same group
+
+All features with same code are considered to be in the same group ()
 
 <!--
 

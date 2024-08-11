@@ -328,7 +328,7 @@ phone
             <div class="input-group" id="extra_filter">
               <span class="input-group-text">Position</span>
               <textarea class="form-control" aria-label="Latitude, Longitude" rows="1" id="filter_active_latlon"
-                placeholder="-12.34,56.78 (latitude, longitude), @tid= or URL"></textarea>
+                placeholder="-12.34,56.78 (latitude, longitude), @fid= or URL"></textarea>
               <span class="input-group-text">Distance (m)</span>
               <input type="text" class="form-control" id="filter_active_latlon_dist" aria-label="distance" value="100">
             </div>
@@ -944,72 +944,6 @@ phone
     }
 
 
-    /**
-     * @TODO refactor this later as part of more complex
-     *       tagging parsing. Likely move the keys into
-     *       something that is configurable
-     *       - fititnt 2024-08-07 16:22 BRT 
-     * 
-     **/
-    function _parse_options_even_more_regex(key, regex_str) {
-
-      // @TODO move this to configuration files
-      let names = [
-        'name', 'old_name', 'alt_name', 'official_name'
-      ]
-
-      let addrs = [
-        'addr:street', 'addr:place'
-      ]
-
-      if (names.indexOf(key) > -1 || addrs.indexOf(key) > -1) {
-        // https://stackoverflow.com/questions/990904/remove-accents-diacritics-in-a-string-in-javascript
-        regex_str = regex_str.toLowerCase()
-        // regex_str = regex_str.replace(/áàâ/)
-        regex_str = regex_str.normalize("NFD").replace(/\p{Diacritic}/gu, "")
-        r = regex_str.replace(new RegExp(/[àáâãäå]/g), "a");
-        r = r.replace(new RegExp(/æ/g), "ae");
-        r = r.replace(new RegExp(/ç/g), "c");
-        r = r.replace(new RegExp(/[èéêë]/g), "e");
-        r = r.replace(new RegExp(/[ìíîï]/g), "i");
-        r = r.replace(new RegExp(/ñ/g), "n");
-        r = r.replace(new RegExp(/[òóôõö]/g), "o");
-        r = r.replace(new RegExp(/œ/g), "oe");
-        r = r.replace(new RegExp(/[ùúûü]/g), "u");
-        regex_str = r.replace(new RegExp(/[ýÿ]/g), "y");
-      }
-
-      if (addrs.indexOf(key) > -1) {
-        // https://stackoverflow.com/questions/990904/remove-accents-diacritics-in-a-string-in-javascript
-        // regex_str = regex_str.lower()
-        // regex_str = regex_str.replace(/áàâ/)
-        // regex_str = regex_str.normalize("NFD").replace(/\p{Diacritic}/gu, "")
-        r = regex_str.replace(new RegExp(/^(avenida\s)/), "");
-        r = r.replace(new RegExp(/^(av\.\s)/), "");
-        r = r.replace(new RegExp(/^(av\s)/), "");
-        r = r.replace(new RegExp(/^(travessa\s)/), "");
-        r = r.replace(new RegExp(/^(alameda\s)/), "");
-        r = r.replace(new RegExp(/^(rua\s)/), "");
-        r = r.replace(new RegExp(/^(r\.\s)/), "");
-        r = r.replace(new RegExp(/^(r\s)/), "");
-        regex_str = r.replace(new RegExp(/^(praca\s)/), "");
-      }
-
-      // // Other dummy text
-      // if (names.indexOf(key) > -1 || addrs.indexOf(key) > -1) {
-      //   // https://stackoverflow.com/questions/990904/remove-accents-diacritics-in-a-string-in-javascript
-
-      //   r = regex_str.replace(new RegExp(/\sde\s/g),"\s?d?e?\s");
-      //   r = regex_str.replace(new RegExp(/\sda\s/g),"\s?d?a?\s");
-      //   r = regex_str.replace(new RegExp(/\sdo\s/g),"\s?d?o?\s");
-
-      //   // regex_str = r.replace(new RegExp(/[ýÿ]/g),"y");
-      //   regex_str = r
-      // }
-
-      return regex_str
-
-    }
 
     /**
       * Calculates the haversine distance between point A, and B.
@@ -1131,109 +1065,9 @@ phone
     //     });
     // }
 
-    function parse_options(text) {
-      // return object with regexes for key-value
-      let result = {}
-      if (!text || text.trim().length === 0) {
-        return null
-      }
-      text.split('\n').forEach(element => {
-        element = element.trim()
-        if (element.length > 0 && element.indexOf('//') === -1) {
-          let parts = element.split('=')
-          let key = parts.shift()
-          let regex_str = parts.join('=')
-
-          regex_str = _parse_options_even_more_regex(key, regex_str)
-          result[key] = new RegExp(regex_str, "i")
-          // console.log(element)
-        }
-
-      });
-      return result
-    }
-
-    function parse_options_simple(text, regex_like = true) {
-      // return object with regexes for key-value
-      let result = []
-      if (!text || text.trim().length === 0) {
-        return null
-      }
-      text.split('\n').forEach(element => {
-        element = element.trim()
-        if (element.length > 0 && element.indexOf('//') === -1) {
-          // let parts = element.split('=')
-          // let key = parts.shift()
-          // let regex_str = parts.join('=')
-          // result[key] = new RegExp(regex_str, "i")
-          // result[key] = new RegExp(element, "i") // Not case sensitive
-          // result[key] = new RegExp(element)
-          if (regex_like) {
-            result.push(new RegExp(element))
-          } else {
-            result.push(element.trim())
-          }
-
-          // console.log(element)
-        }
-      });
-      return result
-    }
 
 
-    /**
-     * return object with regexes for key-value
-     * Only grab lines startign with // and syntax-like
-     * //@did=3//addr:postcode=12345
-     * Which means that only file-layer number 3 apply this rule
-     * 
-     * returns object if have anything meaningful, null otherwise
-     * 
-     * @example
-     *    //@did=3//addr:postcode=12345
-     *    name=hospital
-     **/
-    function parse_options_specific(text) {
-      // return object with regexes for key-value
-      let result_group = {}
-      //let result = {}
-      if (!text || text.trim().length === 0) {
-        return null
-      }
-      text.split('\n').forEach(element => {
-        element = element.trim()
-        if (element.length > 0 && element.indexOf('//@did=') === 0) {
-          let _parts2 = element.replace("//@did=", "").split("//")
-          //console.log(_parts2)
-          //if (parseInt(_parts2[0])) {
-          if (parseInt(_parts2[0]) || _parts2[0] === "0") {
 
-            // let did = _parts2[0].toString()
-            let did = _parts2[0]
-            if (!(`@did=${did}` in result_group)) {
-              result_group[`@did=${did}`] = {}
-            }
-
-            //let parts = element.split('=')
-            let parts = _parts2[1].split('=')
-            let key = parts.shift()
-            let regex_str = parts.join('=')
-
-            regex_str = _parse_options_even_more_regex(key, regex_str)
-            // result[key] = new RegExp(regex_str, "i")
-            result_group[`@did=${did}`][key] = new RegExp(regex_str, "i")
-            // console.log(element)
-          }
-
-        }
-
-      });
-      if (Object.keys(result_group).length === 0) {
-        return null
-      }
-
-      return result_group
-    }
 
 
     /**
@@ -1348,6 +1182,178 @@ phone
       }
 
       return false
+    }
+
+    class MatchingPrompt {
+      static parse_options(text) {
+        // return object with regexes for key-value
+        let result = {}
+        if (!text || text.trim().length === 0) {
+          return null
+        }
+        text.split('\n').forEach(element => {
+          element = element.trim()
+          if (element.length > 0 && element.indexOf('//') === -1) {
+            let parts = element.split('=')
+            let key = parts.shift()
+            let regex_str = parts.join('=')
+
+            regex_str = MatchingPrompt._parse_options_even_more_regex(key, regex_str)
+            result[key] = new RegExp(regex_str, "i")
+            // console.log(element)
+          }
+
+        });
+        return result
+      }
+
+      static parse_options_simple(text, regex_like = true) {
+        // return object with regexes for key-value
+        let result = []
+        if (!text || text.trim().length === 0) {
+          return null
+        }
+        text.split('\n').forEach(element => {
+          element = element.trim()
+          if (element.length > 0 && element.indexOf('//') === -1) {
+            // let parts = element.split('=')
+            // let key = parts.shift()
+            // let regex_str = parts.join('=')
+            // result[key] = new RegExp(regex_str, "i")
+            // result[key] = new RegExp(element, "i") // Not case sensitive
+            // result[key] = new RegExp(element)
+            if (regex_like) {
+              result.push(new RegExp(element))
+            } else {
+              result.push(element.trim())
+            }
+
+            // console.log(element)
+          }
+        });
+        return result
+      }
+
+      /**
+       * return object with regexes for key-value
+       * Only grab lines startign with // and syntax-like
+       * //@did=3//addr:postcode=12345
+       * Which means that only file-layer number 3 apply this rule
+       * 
+       * returns object if have anything meaningful, null otherwise
+       * 
+       * @example
+       *    //@did=3//addr:postcode=12345
+       *    name=hospital
+       **/
+      static parse_options_specific(text) {
+        // return object with regexes for key-value
+        let result_group = {}
+        //let result = {}
+        if (!text || text.trim().length === 0) {
+          return null
+        }
+        text.split('\n').forEach(element => {
+          element = element.trim()
+          if (element.length > 0 && element.indexOf('//@did=') === 0) {
+            let _parts2 = element.replace("//@did=", "").split("//")
+            //console.log(_parts2)
+            //if (parseInt(_parts2[0])) {
+            if (parseInt(_parts2[0]) || _parts2[0] === "0") {
+
+              // let did = _parts2[0].toString()
+              let did = _parts2[0]
+              if (!(`@did=${did}` in result_group)) {
+                result_group[`@did=${did}`] = {}
+              }
+
+              //let parts = element.split('=')
+              let parts = _parts2[1].split('=')
+              let key = parts.shift()
+              let regex_str = parts.join('=')
+
+              regex_str = MatchingPrompt._parse_options_even_more_regex(key, regex_str)
+              // result[key] = new RegExp(regex_str, "i")
+              result_group[`@did=${did}`][key] = new RegExp(regex_str, "i")
+              // console.log(element)
+            }
+
+          }
+
+        });
+        if (Object.keys(result_group).length === 0) {
+          return null
+        }
+
+        return result_group
+      }
+
+      /**
+       * @TODO refactor this later as part of more complex
+       *       tagging parsing. Likely move the keys into
+       *       something that is configurable
+       *       - fititnt 2024-08-07 16:22 BRT 
+       * 
+       **/
+      static _parse_options_even_more_regex(key, regex_str) {
+
+        // @TODO move this to configuration files
+        let names = [
+          'name', 'old_name', 'alt_name', 'official_name'
+        ]
+
+        let addrs = [
+          'addr:street', 'addr:place'
+        ]
+
+        if (names.indexOf(key) > -1 || addrs.indexOf(key) > -1) {
+          // https://stackoverflow.com/questions/990904/remove-accents-diacritics-in-a-string-in-javascript
+          regex_str = regex_str.toLowerCase()
+          // regex_str = regex_str.replace(/áàâ/)
+          regex_str = regex_str.normalize("NFD").replace(/\p{Diacritic}/gu, "")
+          r = regex_str.replace(new RegExp(/[àáâãäå]/g), "a");
+          r = r.replace(new RegExp(/æ/g), "ae");
+          r = r.replace(new RegExp(/ç/g), "c");
+          r = r.replace(new RegExp(/[èéêë]/g), "e");
+          r = r.replace(new RegExp(/[ìíîï]/g), "i");
+          r = r.replace(new RegExp(/ñ/g), "n");
+          r = r.replace(new RegExp(/[òóôõö]/g), "o");
+          r = r.replace(new RegExp(/œ/g), "oe");
+          r = r.replace(new RegExp(/[ùúûü]/g), "u");
+          regex_str = r.replace(new RegExp(/[ýÿ]/g), "y");
+        }
+
+        if (addrs.indexOf(key) > -1) {
+          // https://stackoverflow.com/questions/990904/remove-accents-diacritics-in-a-string-in-javascript
+          // regex_str = regex_str.lower()
+          // regex_str = regex_str.replace(/áàâ/)
+          // regex_str = regex_str.normalize("NFD").replace(/\p{Diacritic}/gu, "")
+          r = regex_str.replace(new RegExp(/^(avenida\s)/), "");
+          r = r.replace(new RegExp(/^(av\.\s)/), "");
+          r = r.replace(new RegExp(/^(av\s)/), "");
+          r = r.replace(new RegExp(/^(travessa\s)/), "");
+          r = r.replace(new RegExp(/^(alameda\s)/), "");
+          r = r.replace(new RegExp(/^(rua\s)/), "");
+          r = r.replace(new RegExp(/^(r\.\s)/), "");
+          r = r.replace(new RegExp(/^(r\s)/), "");
+          regex_str = r.replace(new RegExp(/^(praca\s)/), "");
+        }
+
+        // // Other dummy text
+        // if (names.indexOf(key) > -1 || addrs.indexOf(key) > -1) {
+        //   // https://stackoverflow.com/questions/990904/remove-accents-diacritics-in-a-string-in-javascript
+
+        //   r = regex_str.replace(new RegExp(/\sde\s/g),"\s?d?e?\s");
+        //   r = regex_str.replace(new RegExp(/\sda\s/g),"\s?d?a?\s");
+        //   r = regex_str.replace(new RegExp(/\sdo\s/g),"\s?d?o?\s");
+
+        //   // regex_str = r.replace(new RegExp(/[ýÿ]/g),"y");
+        //   regex_str = r
+        // }
+
+        return regex_str
+
+      }
     }
 
     class Configuration {
@@ -1635,16 +1641,16 @@ phone
       let item_props = item["properties"]
       //let item_did = 
 
-      // console.log('options before', item["__did"], item["__tid"], options, options_specific)
+      // console.log('options before', item["__did"], item["__fid"], options, options_specific)
 
       // if (options_specific !== null && `@did=${item["__did"]}` in options_specific) {
       if (options_specific && options_specific[`@did=${item["__did"]}`]) {
-        // console.log('options tem especifico', item["__did"], item["__tid"], options, options_specific[`@did=${item["__did"]}`])
+        // console.log('options tem especifico', item["__did"], item["__fid"], options, options_specific[`@did=${item["__did"]}`])
         for (const [key, value] of Object.entries(options_specific[`@did=${item["__did"]}`])) {
           options[key] = value
         }
       } else {
-        // console.log('options !!!NAO!! tem especifico', item["__did"], item["__tid"], options)
+        // console.log('options !!!NAO!! tem especifico', item["__did"], item["__fid"], options)
       }
 
       // console.log('options after', item["__did"], options, options_specific)
@@ -1673,7 +1679,7 @@ phone
         }
         // console.log(`${key}: ${value}`);
       }
-      // console.log('passou', item["__did"], item["__tid"], options)
+      // console.log('passou', item["__did"], item["__fid"], options)
       return true
     }
 
@@ -1920,7 +1926,7 @@ phone
       // @TODO keyval ; Only select attributes for properties
       let final = {
         '__did': input_file_index, // source file sequencial identifier (start from 1)
-        '__tid': temp_id, // temporary unique id, serial, starts from 1
+        '__fid': temp_id, // temporary unique id, serial, starts from 1
         'type': item['type'],
         'geometry': item['geometry'],
         'properties': {},
@@ -2088,7 +2094,7 @@ phone
       collection.forEach(function (item) {
         // console.log('output_printer', item)
         let __did = item['__did']
-        let __tid = item['__tid']
+        let __fid = item['__fid']
         _maximum_displayed -= 1
         if (_maximum_displayed >= 0) {
           let item_group = []
@@ -2097,7 +2103,7 @@ phone
             item_group.push(`// note: [${item['_comment']}]`)
           }
 
-          item_group.push(`// [@did=${__did}; @tid=${__tid}] ${JSON.stringify(item['geometry'])}`)
+          item_group.push(`// [@did=${__did}; @fid=${__fid}] ${JSON.stringify(item['geometry'])}`)
 
           for (const [key, value] of Object.entries(item['properties'])) {
             item_group.push(`${key}=${value}`)
@@ -2213,8 +2219,8 @@ phone
       var _data_ex_count_i = 0
       // let _data_ex_count_t = 0
       var _data_ex_count_t = 0
-      let filter_options = parse_options(data_ex_filter.value)
-      let fields_to_export = parse_options_simple(data_ex_fields_exporter.value)
+      let filter_options = MatchingPrompt.parse_options(data_ex_filter.value)
+      let fields_to_export = MatchingPrompt.parse_options_simple(data_ex_fields_exporter.value)
       const import_fields_anyifosm_nwr = document.getElementById("import_fields_anyifosm_nwr").checked
       var examples = []
       // let files_loaded = 0
@@ -2793,7 +2799,7 @@ phone
     function readFileReference(input) {
       const import_reffile_dist = parseInt(document.querySelector("#import_reffile_dist").value)
       const import_reffile_dist2 = parseInt(document.querySelector("#import_reffile_dist2").value)
-      const import_reffile_rules = parse_options_simple(document.querySelector("#import_reffile_rules").value, false)
+      const import_reffile_rules = MatchingPrompt.parse_options_simple(document.querySelector("#import_reffile_rules").value, false)
       const import_reffile_rules_missing = Boolean(document.querySelector("#import_reffile_rules_missing").checked)
       console.log(input, import_reffile_dist, import_reffile_rules)
 
@@ -2833,11 +2839,11 @@ phone
               if ("__did" in item) {
                 delete item["__did"]
               }
-              if ("__tid" in item) {
-                delete item["__tid"]
+              if ("__fid" in item) {
+                delete item["__fid"]
               }
               item["__rid"] = input_file_index
-              item["__rtid"] = index + 1
+              item["__rfid"] = index + 1
               SDMData.Reference.push(item)
             })
             filesref_loaded += 1
@@ -2943,13 +2949,13 @@ phone
       let parsed_general = null
       let parsed_specific = null
       if (text.indexOf('=') === -1) {
-        parsed_general = parse_options_simple(text)
+        parsed_general = MatchingPrompt.parse_options_simple(text)
         // console.log('_update_filter_delayed_opt simple', text, parsed)
       } else {
-        parsed_general = parse_options(text)
+        parsed_general = MatchingPrompt.parse_options(text)
         // console.log('_update_filter_delayed_opt full', text, parsed)
       }
-      parsed_specific = parse_options_specific(text)
+      parsed_specific = MatchingPrompt.parse_options_specific(text)
       return [parsed_general, parsed_specific]
     }
 
@@ -3382,9 +3388,9 @@ phone
           // http://localhost:8111/zoom?left=8.19&right=8.20&top=48.605&bottom=48.590
 
           //_links = _links + `| <a href="https://osm.org/#map=${_zoom}/${_lon}/${_lat}" target="_blank">OSM</a>`
-          item_group.push(`// [@did=${feature["__did"]}; @tid=${feature["__tid"]}] // ${_links}`)
+          item_group.push(`// [@did=${feature["__did"]}; @fid=${feature["__fid"]}] // ${_links}`)
         } else {
-          item_group.push(`// [@did=${feature["__did"]}; @tid=${feature["__tid"]}]`)
+          item_group.push(`// [@did=${feature["__did"]}; @fid=${feature["__fid"]}]`)
         }
 
         for (const [key, value] of Object.entries(feature['properties'])) {
@@ -3943,14 +3949,14 @@ phone
       const filter_active_latlon_dist = parseInt(document.getElementById("filter_active_latlon_dist").value);
 
 
-      // @tid=98
-      if (filter_active_latlon.includes("@tid=")) {
-        let _parts = filter_active_latlon.trim().split("@tid=")
-        let _tid = parseInt(_parts[1])
-        // console.log('@tid', filter_active_latlon, _parts)
+      // @fid=98
+      if (filter_active_latlon.includes("@fid=")) {
+        let _parts = filter_active_latlon.trim().split("@fid=")
+        let _fid = parseInt(_parts[1])
+        // console.log('@fid', filter_active_latlon, _parts)
 
         SDMData.Main.some(function (item, index) {
-          if (item["__tid"] == _tid) {
+          if (item["__fid"] == _fid) {
             // Only if is Point, others may not be excatly on center
             refpoint_latlon = item['geometry']['coordinates']
             return true
