@@ -919,68 +919,6 @@ phone
     // const render_active = document.getElementById("render_active");
 
 
-    function _import_keys_renamer(item_object) {
-
-      if (!item_object) {
-        return item_object
-      }
-      //SDMOption.Renamer.item_object
-
-      // console.log('iniciando')
-
-      for (const [key, value] of Object.entries(item_object)) {
-        // if (key in Object.keys(SDMOption.Renamer)) {
-        if (Object.keys(SDMOption.Renamer).indexOf(key) > -1) {
-          // console.log('fooi')
-          // Object.defineProperty(o, new_key,
-          // Object.getOwnPropertyDescriptor(o, old_key));
-          // delete o[old_key];
-          Object.defineProperty(item_object, SDMOption.Renamer[key][0],
-            Object.getOwnPropertyDescriptor(item_object, key));
-          delete item_object[key];
-        }
-      }
-
-      return item_object
-    }
-
-    function _import_values_processor(item_object) {
-
-      if (!item_object) {
-        return item_object
-      }
-
-      if (Object.keys(item_object).indexOf("wikidata") > -1) {
-        if (item_object["wikidata"].startsWith("http")) {
-          let parts = item_object["wikidata"].split("entity/")
-          if (parts.length === 2 && parts[1].startsWith("Q")) {
-            item_object["wikidata"] = parts[1]
-          }
-        }
-      }
-
-      return item_object
-    }
-
-    // function _import_
-
-    /**
-     * 
-     * 
-     **/
-    function _import_expand_coordinates(item_object) {
-
-      // Do not call this from something already GeoJSON
-
-
-
-      if (!item_object) {
-        return null
-      }
-
-    }
-
-
 
     /**
       * Calculates the haversine distance between point A, and B.
@@ -1354,7 +1292,69 @@ phone
 
     }
 
+
+    /**
+     * Low level parsing of instructions for data matching
+     **/
     class MatchingPrompt {
+
+
+      static _import_keys_renamer(item_object) {
+
+        if (!item_object) {
+          return item_object
+        }
+        //SDMOption.Renamer.item_object
+
+        // console.log('iniciando')
+
+        for (const [key, value] of Object.entries(item_object)) {
+          // if (key in Object.keys(SDMOption.Renamer)) {
+          if (Object.keys(SDMOption.Renamer).indexOf(key) > -1) {
+            // console.log('fooi')
+            // Object.defineProperty(o, new_key,
+            // Object.getOwnPropertyDescriptor(o, old_key));
+            // delete o[old_key];
+            Object.defineProperty(item_object, SDMOption.Renamer[key][0],
+              Object.getOwnPropertyDescriptor(item_object, key));
+            delete item_object[key];
+          }
+        }
+
+        return item_object
+      }
+
+      static _import_values_processor(item_object) {
+
+        if (!item_object) {
+          return item_object
+        }
+
+        if (Object.keys(item_object).indexOf("wikidata") > -1) {
+          if (item_object["wikidata"].startsWith("http")) {
+            let parts = item_object["wikidata"].split("entity/")
+            if (parts.length === 2 && parts[1].startsWith("Q")) {
+              item_object["wikidata"] = parts[1]
+            }
+          }
+        }
+
+        return item_object
+      }
+
+      /**
+      * 
+      * 
+      **/
+      static _import_expand_coordinates(item_object) {
+
+        // Do not call this from something already GeoJSON
+        if (!item_object) {
+          return null
+        }
+
+      }
+
       static parse_options(text) {
         // return object with regexes for key-value
         let result = {}
@@ -1522,6 +1522,464 @@ phone
         // }
 
         return regex_str
+
+      }
+    }
+
+    class Matcher {
+      static _todo() {
+        // Move other logic here
+      }
+    }
+
+    // UI.
+    class UI {
+
+      /**
+       * Javascript that needs to run only once, after page finish load
+       **/
+      static init_ui() {
+        // const memory_download = document.getElementById("memory_download");
+        //const active_download = document.getElementById("active_download");
+        // const export_download = document.getElementById("export_download");
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+        //memory_download.addEventListener("click", saveGeoJSONofMemory)
+        // active_download.addEventListener("click", saveGeoJSONofActiveMemory)
+
+        SDMConf._ = new Configuration()
+
+        SDMConf._.add_config_remote(SDMConf.conf_init_file)
+
+        export_download.addEventListener("click", UI.exportFile)
+        if (SDMConf.conf_init_extras && SDMConf.conf_init_extras.length > 0) {
+          SDMConf.conf_init_extras.map(item => SDMConf._.add_config_remote(item))
+        }
+
+        const export_filetype = document.querySelectorAll('input[type=radio][name=export_filetype]')
+        export_filetype.forEach(function (element) {
+          element.addEventListener("click", function () {
+            let val = document.querySelector("input[type=radio][name=export_filetype]:checked").value
+            document.querySelector("#export_fileext").innerText = val
+          });
+        });
+
+        UI.ui_init_inputsize()
+
+        UI.ui_init_urlparameters()
+      }
+
+      static encodeParamsforJOSM(item_props) {
+        if (!item_props) {
+          return ''
+        }
+        // const ignore = [
+        //   /^@id$/
+        // ]
+        const ignore = [
+          "@id"
+        ]
+        let result = []
+        for (const key in item_props) {
+          if (ignore.indexOf(key) === -1) {
+            if (Object.hasOwnProperty.call(item_props, key)) {
+              const element = item_props[key];
+              //result.push(encodeURIComponent(key) + "=" + encodeURIComponent(element))
+              // result.push(`${key}=${element}`.replace(" ", "+"))
+              result.push(`${key}=${element}`)
+              //result.push(encodeURIComponent(`${key}=${element}`))
+              //result.push(encodeURIComponent(`${key}=${element}`))
+            }
+          }
+        }
+
+        // return result.join("|")
+        return encodeURIComponent(result.join("|"))
+      }
+
+      static onEachFeatureJOSMClick(ev) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        const myRequest = new Request(ev.target.href);
+        fetch(myRequest)
+          .then(function (response) {
+            console.log(`JSOM Remote: ${ev.target.href}`);
+            //console.log(response.blob());
+          }).catch((error) => {
+            console.error("Is JOSM open? Is JOSM Remote enabled? (error: can't redirect to JOSM Remote Control)", error)
+          });
+      }
+
+      static onEachFeature(feature, layer) {
+        let title = ''
+        let item_group = []
+        let output = []
+
+        // console.log('feature', feature)
+
+        if (feature.properties) {
+
+          // isso aqui deveria ser o popup
+          if (feature.properties.name) {
+            layer.bindTooltip(feature.properties.name);
+          }
+
+          // if (feature["geometry"]["type"] == "Point") {
+          if (feature["geometry"]["type"] && feature["properties"]) {
+            let _lon = parseFloat(feature["geometry"]["coordinates"][0])
+            let _lat = parseFloat(feature["geometry"]["coordinates"][1])
+            let _zoom = 17
+
+            let _ed_id_extras = ''
+            let _ed_josm_extras = ''
+            //let _ed_josm_operation_1 = 'load_and_zoom'
+            let _ed_josm_tags_1 = ''
+            let _ed_l0_nwr = ''
+
+            if (feature["properties"] && "@id" in feature["properties"] &&
+              /^(node\/|way\/|relation\/)-?\d+/.test(feature["properties"]["@id"])
+            ) {
+              _ed_id_extras = '&' + feature['properties']["@id"].replace("/", "=")
+              _ed_josm_extras = '&select=' + feature['properties']["@id"].replace("/", "")
+              //_ed_josm_operation_1 = 'load_and_zoom'
+              _ed_l0_nwr = feature['properties']["@id"]
+
+            }
+
+            // https://level0.osmz.ru/?url=node/240095754
+
+            const josm_params = UI.encodeParamsforJOSM(feature['properties'])
+            if (josm_params) {
+              _ed_josm_tags_1 = "&addtags=" + josm_params
+            }
+
+            let _links = `<a href="https://osm.org/#map=${_zoom}/${_lat}/${_lon}" target="_blank">OSM</a>`
+            _links = _links + ` | <a href="https://osm.org/edit#map=${_zoom}/${_lat}/${_lon}&photo_overlay=streetside,mapillary,kartaview${_ed_id_extras}" target="_blank">iD</a>`
+            // _links = _links + ` | <a href="http://localhost:8111/${_ed_josm_operation_1}?left=${_lon - 0.0005}&right=${_lon + 0.0005}&top=${_lat + 0.0005}&bottom=${_lat - 0.0005}${_ed_josm_extras}${_ed_josm_tags_1}" target="_blank" onclick=onEachFeatureJOSMClick(event)>JOSM<sup>z</sup></a>`
+            _links = _links + ` | <a href="http://localhost:8111/load_and_zoom?left=${_lon - 0.005}&right=${_lon + 0.005}&top=${_lat + 0.005}&bottom=${_lat - 0.005}${_ed_josm_extras}" target="_blank" onclick="UI.onEachFeatureJOSMClick(event)">JOSM<sup>z</sup></a>`
+            _links = _links + ` | <a href="http://localhost:8111/add_node?lat=${_lat}&lon=${_lon}${_ed_josm_tags_1}" target="_blank" onclick="UI.onEachFeatureJOSMClick(event)">JOSM<sup>n</sup></a>`
+
+            if (_ed_l0_nwr) {
+              _links = _links + ` | <a href="https://level0.osmz.ru/?url=${_ed_l0_nwr}" target="_blank">level0</a>`
+            }
+
+            // http://localhost:8111/zoom?left=8.19&right=8.20&top=48.605&bottom=48.590
+
+            //_links = _links + `| <a href="https://osm.org/#map=${_zoom}/${_lon}/${_lat}" target="_blank">OSM</a>`
+            item_group.push(`// [@did=${feature["__did"]}; @fid=${feature["__fid"]}] // ${_links}`)
+          } else {
+            item_group.push(`// [@did=${feature["__did"]}; @fid=${feature["__fid"]}]`)
+          }
+
+          for (const [key, value] of Object.entries(feature['properties'])) {
+            if (key == "@id" && (value.startsWith("node/") || value.startsWith("way/") || value.startsWith("relation/"))) {
+              item_group.push(`${key}=<a href="https://osm.org/${value}" target="_blank">${value}</a>`)
+            } else if (key.includes("wikidata") && (value.startsWith("Q") || value.startsWith("P"))) {
+              item_group.push(`${key}=<a href="https://www.wikidata.org/wiki/${value}" target="_blank">${value}</a>`)
+            } else {
+              item_group.push(`${key}=${value}`)
+            }
+          }
+          // output.push(item_group.join('\n'))
+
+          // if (feature.properties.name) {
+          //   // layer.bindPopup(feature.properties.name);
+          //   // layer.bindPopup(output.join('\n\n'));
+          //   layer.bindPopup(item_group.join('<br>'));
+          // }
+          layer.bindPopup(item_group.join('<br>'));
+        }
+
+        // // does this feature have a property named popupContent?
+        // if (feature.properties && feature.properties.popupContent) {
+        //     layer.bindPopup(feature.properties.popupContent);
+        // }
+      }
+
+      static saveGeoJSON(geojson_object, filename) {
+        const blob = new Blob([JSON.stringify(geojson_object, null, 2)], {
+          type: 'application/geo+json',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.geojson`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      static saveGeoJSONTextSequences(geojson_object_list, filename) {
+        const as_list = geojson_object_list.map((feature) => JSON.stringify(feature))
+
+
+        // @TODO make it work with list of items
+        // const blob = new Blob([JSON.stringify(geojson_object, null, 2)], {
+        // const blob = new Blob([as_list.join("␞\n")], {
+        const blob = new Blob([as_list.join(String.fromCharCode(30, 10))], {
+          type: 'application/geo+json-seq',
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${filename}.geojsonl`;
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      static saveGeoJSONofActiveMemory() {
+        let result = {
+          "type": "FeatureCollection",
+          "_meta": {
+            "sources": [],
+            "import_filters": "",
+            "import_fields": "",
+            "active_filter_tags": "",
+          },
+          "features": []
+        }
+
+        // @TODO implement full download, not merely preview
+        _Etc.WorkingInputFiles.forEach(function (item) {
+          result["_meta"]["sources"].push({
+            name: item["name"],
+            lastModified: item["lastModified"],
+            lastModifiedDate: item["lastModifiedDate"],
+            size: item["size"],
+          })
+        })
+
+        result["_meta"]["import_filters"] = document.getElementById("data_ex_filter").value
+        result["_meta"]["import_fields"] = document.getElementById("data_ex_fields_exporter").value
+        result["_meta"]["active_filter_tags"] = document.getElementById("filter_active_simple").value
+        result["_meta"]["active_filter_refence"] = document.getElementById("filter_active_latlon").value
+        result["_meta"]["active_filter_refence_distance"] = document.getElementById("filter_active_latlon_dist").value
+
+        SDMData.Main.forEach(function (item) {
+          result["features"].push(item)
+        })
+
+        // saveGeoJSON({ test: 'is passed' }, 'testJsonFile');
+        UI.saveGeoJSON(result, 'osm-fm__active-memory(preview-only)');
+      };
+
+      static saveGeoJSONofMemory(filename = 'osm-fm__working-memory', filesuffix = '.geojson') {
+        let result = {
+          "type": "FeatureCollection",
+          "_meta": {
+            "sources": [],
+            "import_filters": "",
+            "import_fields": "",
+          },
+          "features": []
+        }
+
+        _Etc.WorkingInputFiles.forEach(function (item) {
+          result["_meta"]["sources"].push({
+            name: item["name"],
+            lastModified: item["lastModified"],
+            lastModifiedDate: item["lastModifiedDate"],
+            size: item["size"],
+          })
+        })
+
+        result["_meta"]["import_filters"] = document.getElementById("data_ex_filter").value
+        result["_meta"]["import_fields"] = document.getElementById("data_ex_fields_exporter").value
+
+        SDMData.Main.forEach(function (item) {
+          result["features"].push(item)
+        })
+
+        // saveGeoJSON({ test: 'is passed' }, 'testJsonFile');
+        // saveGeoJSON(result, 'osm-fm__working-memory');
+
+        console.log('UI.saveGeoJSONofMemory', result, filename, filesuffix, filesuffix === '.geojson', filesuffix === '.geojsonl')
+
+        if (filesuffix === '.geojson') {
+          console.log('UI.saveGeoJSONofMemory todo saveGeoJSON', filesuffix)
+          UI.saveGeoJSON(result, filename);
+        } else if (filesuffix === ".geojsonl") {
+          console.log('UI.saveGeoJSONofMemory todo saveGeoJSONTextSequences', filesuffix)
+          UI.saveGeoJSONTextSequences(result["features"], filename);
+        } else {
+          throw Error("UI.saveGeoJSONofMemory err", filename, filesuffix)
+        }
+      };
+
+      static exportFile() {
+        const filename = document.querySelector("#export_filename").value
+        const filesuffix = document.querySelector("#export_fileext").innerText
+        const filetype = document.querySelector("input[type=radio][name=export_filetype]:checked").value
+        const content = document.querySelector("input[type=radio][name=export_content]:checked").value
+
+        // console.log("TODO exportFile", filename, filesuffix, filetype)
+
+        UI.saveGeoJSONofMemory(filename, filesuffix)
+      }
+
+      static ui_datasets_list_did_itens_count(did) {
+        let count = 0
+        SDMData.Main.forEach(function (item) {
+          if (item["__did"] == parseInt(did)) {
+            count += 1
+          }
+        })
+
+        return new Intl.NumberFormat().format(count)
+      }
+      static ui_datasets_list_event(event) {
+        // console.log('ui_datasets_list_event', event)
+
+        _Etc.hide_did = parseInt(document.querySelector("#hide_did").value)
+        _Etc.hide_did_dist = parseInt(document.querySelector("#hide_did_dist").value)
+        _Etc.hide_did_keys = document.querySelector("#hide_did_keys").value.split(",").map(x => x.trim()).filter(x => x)
+        _Etc.focus_did = parseInt(document.querySelector("#focus_did").value)
+
+        if (_Etc.hide_did > -1) {
+          document.querySelector(`#check__did${_Etc.hide_did}`).checked = false
+        }
+
+        if (_Etc.focus_did > -1) {
+          document.querySelector(`#check__did${_Etc.focus_did}`).checked = true
+          if (_Etc.hide_did === _Etc.focus_did) {
+            _Etc.hide_did = -1
+            document.querySelector("#hide_did").value = "-1"
+          }
+        }
+
+        //filter_dids = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.did)))
+        _Etc.enabled_files = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.did)))
+
+        update_filter_delayed()
+        // update_map()
+        //if (document.getElementById('ui_map_preview_realtime').checked) {
+        //  update_map()
+        //}
+        // if (document.getElementById('ui_map_preview').checked) {
+        //   update_map()
+        // }
+      }
+
+
+      /**
+       * This will check if URI have paramaters, such as data files in data[]
+       * ?data[]=https://example.org/file1.geojson&data[]=https://example.org/file2.csv
+       * and if find, will populate SDMConf and trigger the initialization
+       * without user click
+       **/
+      static ui_init_urlparameters() {
+
+        if (document.location.search.length > 1) {
+
+          let simple_conf = {
+            data: [],
+            conf: [],
+          }
+          let trigger_init = false
+
+          const searchParams = new URLSearchParams(document.location.search.replace(/^\?/, ""));
+
+
+          for (const p of searchParams) {
+            // console.log(p);
+            if (p[0] === "data[]") {
+              simple_conf.data.push(p[1])
+              trigger_init = true
+            }
+            if (p[0] === "conf[]") {
+              simple_conf.conf.push(p[1])
+              // console.log('SDMConf._', SDMConf._)
+              SDMConf._.add_config_remote(p[1])
+              trigger_init = true
+
+            }
+          }
+
+          // console.log('ui_init_urlparameters', simple_conf)
+          SDMConf.FromURIParameters = simple_conf
+          if (trigger_init) {
+            readFilesOrParameters(false)
+          }
+        }
+
+        return false
+      }
+
+      static ui_init_export() {
+        // export_filetype
+
+      }
+
+
+      static ui_init_inputsize() {
+
+        const uploadInput = document.getElementById("external-data-file");
+
+        uploadInput.addEventListener(
+          "change",
+          () => {
+            // Calculate total size
+            let numberOfBytes = 0;
+            for (const file of uploadInput.files) {
+              numberOfBytes += file.size;
+            }
+
+            // Approximate to the closest prefixed unit
+            const units = [
+              "B",
+              "KiB",
+              "MiB",
+              "GiB",
+              "TiB",
+              "PiB",
+              "EiB",
+              "ZiB",
+              "YiB",
+            ];
+            const exponent = Math.min(
+              Math.floor(Math.log(numberOfBytes) / Math.log(1024)),
+              units.length - 1
+            );
+            const approx = numberOfBytes / 1024 ** exponent;
+            const output =
+              exponent === 0
+                ? `${numberOfBytes} bytes`
+                : `${approx.toFixed(3)} ${units[exponent]
+                } (${numberOfBytes} bytes)`;
+
+            document.getElementById("fileNum").textContent =
+              uploadInput.files.length;
+            document.getElementById("fileSize").textContent = output;
+          },
+          false
+        );
+      }
+
+      static ui_map_pin_images(did) {
+        // const _baseurl_icons = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-'
+        const _baseurl_icons = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-'
+        const list_icons = [
+          _baseurl_icons + "blue.png",
+          _baseurl_icons + "green.png",
+          _baseurl_icons + "gold.png",
+          _baseurl_icons + "orange.png",
+          _baseurl_icons + "red.png",
+          _baseurl_icons + "yellow.png",
+          _baseurl_icons + "violet.png",
+          _baseurl_icons + "grey.png",
+          _baseurl_icons + "blue.png",
+          _baseurl_icons + "black.png"
+        ]
+        const modulo = did % list_icons.length
+        return list_icons[modulo]
+      }
+      /**
+       * 
+       * Run ideally only once after all the files are ready to be rendered.
+       * Some async cases may be simpler to just run again
+       * (doing this for CSV asyng)
+       * 
+       **/
+      ui_reload_after_import = () => {
 
       }
     }
@@ -1999,125 +2457,6 @@ phone
       return final
     }
 
-    const saveGeoJSON = (geojson_object, filename) => {
-      const blob = new Blob([JSON.stringify(geojson_object, null, 2)], {
-        type: 'application/geo+json',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${filename}.geojson`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
-
-    const saveGeoJSONTextSequences = (geojson_object_list, filename) => {
-      const as_list = geojson_object_list.map((feature) => JSON.stringify(feature))
-
-
-      // @TODO make it work with list of items
-      // const blob = new Blob([JSON.stringify(geojson_object, null, 2)], {
-      // const blob = new Blob([as_list.join("␞\n")], {
-      const blob = new Blob([as_list.join(String.fromCharCode(30, 10))], {
-        type: 'application/geo+json-seq',
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${filename}.geojsonl`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
-
-    const saveGeoJSONofActiveMemory = () => {
-      let result = {
-        "type": "FeatureCollection",
-        "_meta": {
-          "sources": [],
-          "import_filters": "",
-          "import_fields": "",
-          "active_filter_tags": "",
-        },
-        "features": []
-      }
-
-      // @TODO implement full download, not merely preview
-      _Etc.WorkingInputFiles.forEach(function (item) {
-        result["_meta"]["sources"].push({
-          name: item["name"],
-          lastModified: item["lastModified"],
-          lastModifiedDate: item["lastModifiedDate"],
-          size: item["size"],
-        })
-      })
-
-      result["_meta"]["import_filters"] = document.getElementById("data_ex_filter").value
-      result["_meta"]["import_fields"] = document.getElementById("data_ex_fields_exporter").value
-      result["_meta"]["active_filter_tags"] = document.getElementById("filter_active_simple").value
-      result["_meta"]["active_filter_refence"] = document.getElementById("filter_active_latlon").value
-      result["_meta"]["active_filter_refence_distance"] = document.getElementById("filter_active_latlon_dist").value
-
-      SDMData.Main.forEach(function (item) {
-        result["features"].push(item)
-      })
-
-      // saveGeoJSON({ test: 'is passed' }, 'testJsonFile');
-      saveGeoJSON(result, 'osm-fm__active-memory(preview-only)');
-    };
-
-    const saveGeoJSONofMemory = (filename = 'osm-fm__working-memory', filesuffix = '.geojson') => {
-      let result = {
-        "type": "FeatureCollection",
-        "_meta": {
-          "sources": [],
-          "import_filters": "",
-          "import_fields": "",
-        },
-        "features": []
-      }
-
-      _Etc.WorkingInputFiles.forEach(function (item) {
-        result["_meta"]["sources"].push({
-          name: item["name"],
-          lastModified: item["lastModified"],
-          lastModifiedDate: item["lastModifiedDate"],
-          size: item["size"],
-        })
-      })
-
-      result["_meta"]["import_filters"] = document.getElementById("data_ex_filter").value
-      result["_meta"]["import_fields"] = document.getElementById("data_ex_fields_exporter").value
-
-      SDMData.Main.forEach(function (item) {
-        result["features"].push(item)
-      })
-
-      // saveGeoJSON({ test: 'is passed' }, 'testJsonFile');
-      // saveGeoJSON(result, 'osm-fm__working-memory');
-
-      console.log('saveGeoJSONofMemory', result, filename, filesuffix, filesuffix === '.geojson', filesuffix === '.geojsonl')
-
-      if (filesuffix === '.geojson') {
-        console.log('saveGeoJSONofMemory todo saveGeoJSON', filesuffix)
-        saveGeoJSON(result, filename);
-      } else if (filesuffix === ".geojsonl") {
-        console.log('saveGeoJSONofMemory todo saveGeoJSONTextSequences', filesuffix)
-        saveGeoJSONTextSequences(result["features"], filename);
-      } else {
-        throw Error("saveGeoJSONofMemory err", filename, filesuffix)
-      }
-    };
-
-    const exportFile = () => {
-      const filename = document.querySelector("#export_filename").value
-      const filesuffix = document.querySelector("#export_fileext").innerText
-      const filetype = document.querySelector("input[type=radio][name=export_filetype]:checked").value
-      const content = document.querySelector("input[type=radio][name=export_content]:checked").value
-
-      // console.log("TODO exportFile", filename, filesuffix, filetype)
-
-      saveGeoJSONofMemory(filename, filesuffix)
-    }
 
     // @TODO make geojson only for active filter
 
@@ -2477,8 +2816,8 @@ phone
                 _data_ex_count_i += 1
 
                 // tabular input more likely to need this
-                row.data = _import_keys_renamer(row.data)
-                row.data = _import_values_processor(row.data)
+                row.data = MatchingPrompt._import_keys_renamer(row.data)
+                row.data = MatchingPrompt._import_values_processor(row.data)
 
                 if (_papa_initialize === false) {
                   _papa_initialize = true
@@ -3329,131 +3668,6 @@ phone
 
     // const render_active = document.getElementById("render_active");
 
-    function encodeParamsforJOSM(item_props) {
-      if (!item_props) {
-        return ''
-      }
-      // const ignore = [
-      //   /^@id$/
-      // ]
-      const ignore = [
-        "@id"
-      ]
-      let result = []
-      for (const key in item_props) {
-        if (ignore.indexOf(key) === -1) {
-          if (Object.hasOwnProperty.call(item_props, key)) {
-            const element = item_props[key];
-            //result.push(encodeURIComponent(key) + "=" + encodeURIComponent(element))
-            // result.push(`${key}=${element}`.replace(" ", "+"))
-            result.push(`${key}=${element}`)
-            //result.push(encodeURIComponent(`${key}=${element}`))
-            //result.push(encodeURIComponent(`${key}=${element}`))
-          }
-        }
-      }
-
-      // return result.join("|")
-      return encodeURIComponent(result.join("|"))
-    }
-
-    function onEachFeatureJOSMClick(ev) {
-      ev.stopPropagation();
-      ev.preventDefault();
-      const myRequest = new Request(ev.target.href);
-      fetch(myRequest)
-        .then(function (response) {
-          console.log(`JSOM Remote: ${ev.target.href}`);
-          //console.log(response.blob());
-        })
-    }
-
-    function onEachFeature(feature, layer) {
-      let title = ''
-      let item_group = []
-      let output = []
-
-      // console.log('feature', feature)
-
-      if (feature.properties) {
-
-        // isso aqui deveria ser o popup
-        if (feature.properties.name) {
-          layer.bindTooltip(feature.properties.name);
-        }
-
-        // if (feature["geometry"]["type"] == "Point") {
-        if (feature["geometry"]["type"] && feature["properties"]) {
-          let _lon = parseFloat(feature["geometry"]["coordinates"][0])
-          let _lat = parseFloat(feature["geometry"]["coordinates"][1])
-          let _zoom = 17
-
-          let _ed_id_extras = ''
-          let _ed_josm_extras = ''
-          //let _ed_josm_operation_1 = 'load_and_zoom'
-          let _ed_josm_tags_1 = ''
-          let _ed_l0_nwr = ''
-
-          if (feature["properties"] && "@id" in feature["properties"] &&
-            /^(node\/|way\/|relation\/)-?\d+/.test(feature["properties"]["@id"])
-          ) {
-            _ed_id_extras = '&' + feature['properties']["@id"].replace("/", "=")
-            _ed_josm_extras = '&select=' + feature['properties']["@id"].replace("/", "")
-            //_ed_josm_operation_1 = 'load_and_zoom'
-            _ed_l0_nwr = feature['properties']["@id"]
-
-          }
-
-          // https://level0.osmz.ru/?url=node/240095754
-
-          const josm_params = encodeParamsforJOSM(feature['properties'])
-          if (josm_params) {
-            _ed_josm_tags_1 = "&addtags=" + josm_params
-          }
-
-          let _links = `<a href="https://osm.org/#map=${_zoom}/${_lat}/${_lon}" target="_blank">OSM</a>`
-          _links = _links + ` | <a href="https://osm.org/edit#map=${_zoom}/${_lat}/${_lon}&photo_overlay=streetside,mapillary,kartaview${_ed_id_extras}" target="_blank">iD</a>`
-          // _links = _links + ` | <a href="http://localhost:8111/${_ed_josm_operation_1}?left=${_lon - 0.0005}&right=${_lon + 0.0005}&top=${_lat + 0.0005}&bottom=${_lat - 0.0005}${_ed_josm_extras}${_ed_josm_tags_1}" target="_blank" onclick=onEachFeatureJOSMClick(event)>JOSM<sup>z</sup></a>`
-          _links = _links + ` | <a href="http://localhost:8111/load_and_zoom?left=${_lon - 0.005}&right=${_lon + 0.005}&top=${_lat + 0.005}&bottom=${_lat - 0.005}${_ed_josm_extras}" target="_blank" onclick=onEachFeatureJOSMClick(event)>JOSM<sup>z</sup></a>`
-          _links = _links + ` | <a href="http://localhost:8111/add_node?lat=${_lat}&lon=${_lon}${_ed_josm_tags_1}" target="_blank" onclick=onEachFeatureJOSMClick(event)>JOSM<sup>n</sup></a>`
-
-          if (_ed_l0_nwr) {
-            _links = _links + ` | <a href="https://level0.osmz.ru/?url=${_ed_l0_nwr}" target="_blank">level0</a>`
-          }
-
-          // http://localhost:8111/zoom?left=8.19&right=8.20&top=48.605&bottom=48.590
-
-          //_links = _links + `| <a href="https://osm.org/#map=${_zoom}/${_lon}/${_lat}" target="_blank">OSM</a>`
-          item_group.push(`// [@did=${feature["__did"]}; @fid=${feature["__fid"]}] // ${_links}`)
-        } else {
-          item_group.push(`// [@did=${feature["__did"]}; @fid=${feature["__fid"]}]`)
-        }
-
-        for (const [key, value] of Object.entries(feature['properties'])) {
-          if (key == "@id" && (value.startsWith("node/") || value.startsWith("way/") || value.startsWith("relation/"))) {
-            item_group.push(`${key}=<a href="https://osm.org/${value}" target="_blank">${value}</a>`)
-          } else if (key.includes("wikidata") && (value.startsWith("Q") || value.startsWith("P"))) {
-            item_group.push(`${key}=<a href="https://www.wikidata.org/wiki/${value}" target="_blank">${value}</a>`)
-          } else {
-            item_group.push(`${key}=${value}`)
-          }
-        }
-        // output.push(item_group.join('\n'))
-
-        // if (feature.properties.name) {
-        //   // layer.bindPopup(feature.properties.name);
-        //   // layer.bindPopup(output.join('\n\n'));
-        //   layer.bindPopup(item_group.join('<br>'));
-        // }
-        layer.bindPopup(item_group.join('<br>'));
-      }
-
-      // // does this feature have a property named popupContent?
-      // if (feature.properties && feature.properties.popupContent) {
-      //     layer.bindPopup(feature.properties.popupContent);
-      // }
-    }
-
 
     const update_map = function () {
 
@@ -3567,7 +3781,7 @@ phone
         }
 
         var teste = geoJsonLayer_cluster.push(L.geoJSON(selection, {
-          onEachFeature: onEachFeature,
+          onEachFeature: UI.onEachFeature,
           pointToLayer: createMarker,
           //icon: icon,
           //style: {className: 'did-' + key}
@@ -3636,80 +3850,7 @@ phone
 
 
 
-    /**
-     * 
-     * Run ideally only once after all the files are ready to be rendered.
-     * Some async cases may be simpler to just run again
-     * (doing this for CSV asyng)
-     * 
-     **/
-    const ui_reload_after_import = () => {
 
-    }
-
-
-    const ui_map_pin_images = function (did) {
-      // const _baseurl_icons = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-'
-      const _baseurl_icons = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-'
-      const list_icons = [
-        _baseurl_icons + "blue.png",
-        _baseurl_icons + "green.png",
-        _baseurl_icons + "gold.png",
-        _baseurl_icons + "orange.png",
-        _baseurl_icons + "red.png",
-        _baseurl_icons + "yellow.png",
-        _baseurl_icons + "violet.png",
-        _baseurl_icons + "grey.png",
-        _baseurl_icons + "blue.png",
-        _baseurl_icons + "black.png"
-      ]
-      const modulo = did % list_icons.length
-      return list_icons[modulo]
-    }
-
-    const ui_datasets_list_event = function (event) {
-      // console.log('ui_datasets_list_event', event)
-
-      _Etc.hide_did = parseInt(document.querySelector("#hide_did").value)
-      _Etc.hide_did_dist = parseInt(document.querySelector("#hide_did_dist").value)
-      _Etc.hide_did_keys = document.querySelector("#hide_did_keys").value.split(",").map(x => x.trim()).filter(x => x)
-      _Etc.focus_did = parseInt(document.querySelector("#focus_did").value)
-
-      if (_Etc.hide_did > -1) {
-        document.querySelector(`#check__did${_Etc.hide_did}`).checked = false
-      }
-
-      if (_Etc.focus_did > -1) {
-        document.querySelector(`#check__did${_Etc.focus_did}`).checked = true
-        if (_Etc.hide_did === _Etc.focus_did) {
-          _Etc.hide_did = -1
-          document.querySelector("#hide_did").value = "-1"
-        }
-      }
-
-      //filter_dids = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.did)))
-      _Etc.enabled_files = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.did)))
-
-      update_filter_delayed()
-      // update_map()
-      //if (document.getElementById('ui_map_preview_realtime').checked) {
-      //  update_map()
-      //}
-      // if (document.getElementById('ui_map_preview').checked) {
-      //   update_map()
-      // }
-    }
-
-    const ui_datasets_list_did_itens_count = function (did) {
-      let count = 0
-      SDMData.Main.forEach(function (item) {
-        if (item["__did"] == parseInt(did)) {
-          count += 1
-        }
-      })
-
-      return new Intl.NumberFormat().format(count)
-    }
 
 
     // @TODO, esse talvez nao de
@@ -3733,10 +3874,10 @@ phone
       working_files.forEach(function (item, index) {
         // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
         _html.push(`<div class="form-check form-switch">
-  <input class="form-check-input" type="checkbox" role="switch" id="check__did${index + 1}" data-did="${index + 1}" checked onchange="ui_datasets_list_event(event)">
+  <input class="form-check-input" type="checkbox" role="switch" id="check__did${index + 1}" data-did="${index + 1}" checked onchange="UI.ui_datasets_list_event(event)">
   <label class="form-check-label" for="check__did${index + 1}">
-    <img height="41" width="25" src="${ui_map_pin_images(index + 1)}"/>
-    [${ui_datasets_list_did_itens_count(index + 1)}]
+    <img height="41" width="25" src="${UI.ui_map_pin_images(index + 1)}"/>
+    [${UI.ui_datasets_list_did_itens_count(index + 1)}]
     ${item["name"]}
   </label>
 </div>`)
@@ -3746,7 +3887,7 @@ phone
       _html.push(`  <div class="col">`)
       _html.push(`    <div class="row">`)
       _html.push(`      <h3 class="h5">Datasets used to hide others</h3>`)
-      _html.push(`      <select class="form-select" aria-label="Dataset to substract" onchange="ui_datasets_list_event(event)" id="hide_did">
+      _html.push(`      <select class="form-select" aria-label="Dataset to substract" onchange="UI.ui_datasets_list_event(event)" id="hide_did">
   <option selected value="-1">- Dataset to substract - </option>`)
       working_files.forEach(function (item, index) {
         // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
@@ -3758,13 +3899,13 @@ phone
       _html.push(`      <div class="col">`)
       _html.push(`        <div class="input-group mb-3">
   <span class="input-group-text" id="">Distância (m)</span>
-  <input type="text" class="form-control" placeholder="-1 to disable" id="hide_did_dist" aria-label="Distancia" value="25" onchange="ui_datasets_list_event(event)">
+  <input type="text" class="form-control" placeholder="-1 to disable" id="hide_did_dist" aria-label="Distancia" value="25" onchange="UI.ui_datasets_list_event(event)">
 </div>`)
       _html.push(`      </div>`)
       _html.push(`      <div class="col">`)
       _html.push(`        <div class="input-group mb-3">
   <span class="input-group-text" id="">Keys</span>
-  <input type="text" class="form-control" placeholder="phone,email,ref:vatin" aria-label="Key" value="phone,email,ref:vatin" id="hide_did_keys"  onchange="ui_datasets_list_event(event)">
+  <input type="text" class="form-control" placeholder="phone,email,ref:vatin" aria-label="Key" value="phone,email,ref:vatin" id="hide_did_keys"  onchange="UI.ui_datasets_list_event(event)">
 </div>`)
       _html.push(`        </div>`)
       _html.push(`      </div>`)
@@ -3773,7 +3914,7 @@ phone
       _html.push(`    </div>`)
       _html.push(`    <div class="row">`)
       _html.push(`      <h3 class="h5">Dataset foco</h3>`)
-      _html.push(`      <select class="form-select" aria-label="Dataset de foco" onchange="ui_datasets_list_event(event)" id="focus_did">
+      _html.push(`      <select class="form-select" aria-label="Dataset de foco" onchange="UI.ui_datasets_list_event(event)" id="focus_did">
   <option selected value="-1">- Dataset de foco - </option>`)
       working_files.forEach(function (item, index) {
         // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
@@ -3791,133 +3932,7 @@ phone
       update_filter_delayed()
     }
 
-    /**
-     * This will check if URI have paramaters, such as data files in data[]
-     * ?data[]=https://example.org/file1.geojson&data[]=https://example.org/file2.csv
-     * and if find, will populate SDMConf and trigger the initialization
-     * without user click
-     **/
-    const ui_init_urlparameters = () => {
-
-      if (document.location.search.length > 1) {
-
-        let simple_conf = {
-          data: [],
-          conf: [],
-        }
-        let trigger_init = false
-
-        const searchParams = new URLSearchParams(document.location.search.replace(/^\?/, ""));
-
-
-        for (const p of searchParams) {
-          // console.log(p);
-          if (p[0] === "data[]") {
-            simple_conf.data.push(p[1])
-            trigger_init = true
-          }
-          if (p[0] === "conf[]") {
-            simple_conf.conf.push(p[1])
-            // console.log('SDMConf._', SDMConf._)
-            SDMConf._.add_config_remote(p[1])
-            trigger_init = true
-
-          }
-        }
-
-        // console.log('ui_init_urlparameters', simple_conf)
-        SDMConf.FromURIParameters = simple_conf
-        if (trigger_init) {
-          readFilesOrParameters(false)
-        }
-      }
-
-      return false
-    }
-
-    const ui_init_export = () => {
-      // export_filetype
-
-    }
-    const ui_init_inputsize = () => {
-
-      const uploadInput = document.getElementById("external-data-file");
-
-      uploadInput.addEventListener(
-        "change",
-        () => {
-          // Calculate total size
-          let numberOfBytes = 0;
-          for (const file of uploadInput.files) {
-            numberOfBytes += file.size;
-          }
-
-          // Approximate to the closest prefixed unit
-          const units = [
-            "B",
-            "KiB",
-            "MiB",
-            "GiB",
-            "TiB",
-            "PiB",
-            "EiB",
-            "ZiB",
-            "YiB",
-          ];
-          const exponent = Math.min(
-            Math.floor(Math.log(numberOfBytes) / Math.log(1024)),
-            units.length - 1
-          );
-          const approx = numberOfBytes / 1024 ** exponent;
-          const output =
-            exponent === 0
-              ? `${numberOfBytes} bytes`
-              : `${approx.toFixed(3)} ${units[exponent]
-              } (${numberOfBytes} bytes)`;
-
-          document.getElementById("fileNum").textContent =
-            uploadInput.files.length;
-          document.getElementById("fileSize").textContent = output;
-        },
-        false
-      );
-    }
-
-    /**
-     * Javascript that needs to run only once, after page finish load
-     **/
-    const init_ui = function () {
-      // const memory_download = document.getElementById("memory_download");
-      //const active_download = document.getElementById("active_download");
-      // const export_download = document.getElementById("export_download");
-      const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-      const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
-      //memory_download.addEventListener("click", saveGeoJSONofMemory)
-      // active_download.addEventListener("click", saveGeoJSONofActiveMemory)
-
-      SDMConf._ = new Configuration()
-
-      SDMConf._.add_config_remote(SDMConf.conf_init_file)
-
-      export_download.addEventListener("click", exportFile)
-      if (SDMConf.conf_init_extras && SDMConf.conf_init_extras.length > 0) {
-        SDMConf.conf_init_extras.map(item => SDMConf._.add_config_remote(item))
-      }
-
-      const export_filetype = document.querySelectorAll('input[type=radio][name=export_filetype]')
-      export_filetype.forEach(function (element) {
-        element.addEventListener("click", function () {
-          let val = document.querySelector("input[type=radio][name=export_filetype]:checked").value
-          document.querySelector("#export_fileext").innerText = val
-        });
-      });
-
-      ui_init_inputsize()
-
-      ui_init_urlparameters()
-    }
-
-    document.addEventListener("DOMContentLoaded", init_ui)
+    document.addEventListener("DOMContentLoaded", UI.init_ui)
 
     /**
      * Javascript events that need to respond to changes in the input,
