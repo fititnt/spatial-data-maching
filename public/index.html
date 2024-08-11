@@ -842,13 +842,13 @@ phone
     let refpoint_distance = 10
     // var WorkingDataFiltered = []
 
-    // let filter_fids = []
+    // let filter_dids = []
     let enabled_files = [-1]
-    let hide_fid = -1
-    let hide_fid_dist = 25
-    let hide_fid_keys = []
-    let hide_fid_affected = [] // Arrays of zeroes, one per item
-    let focus_fid = -1
+    let hide_did = -1
+    let hide_did_dist = 25
+    let hide_did_keys = []
+    let hide_did_affected = [] // Arrays of zeroes, one per item
+    let focus_did = -1
     let import_fields_anyifosm_nwr = true
 
     let debounceTimerFilters
@@ -1184,13 +1184,13 @@ phone
     /**
      * return object with regexes for key-value
      * Only grab lines startign with // and syntax-like
-     * //@fid=3//addr:postcode=12345
+     * //@did=3//addr:postcode=12345
      * Which means that only file-layer number 3 apply this rule
      * 
      * returns object if have anything meaningful, null otherwise
      * 
      * @example
-     *    //@fid=3//addr:postcode=12345
+     *    //@did=3//addr:postcode=12345
      *    name=hospital
      **/
     function parse_options_specific(text) {
@@ -1202,16 +1202,16 @@ phone
       }
       text.split('\n').forEach(element => {
         element = element.trim()
-        if (element.length > 0 && element.indexOf('//@fid=') === 0) {
-          let _parts2 = element.replace("//@fid=", "").split("//")
+        if (element.length > 0 && element.indexOf('//@did=') === 0) {
+          let _parts2 = element.replace("//@did=", "").split("//")
           //console.log(_parts2)
           //if (parseInt(_parts2[0])) {
           if (parseInt(_parts2[0]) || _parts2[0] === "0") {
 
-            // let fid = _parts2[0].toString()
-            let fid = _parts2[0]
-            if (!(`@fid=${fid}` in result_group)) {
-              result_group[`@fid=${fid}`] = {}
+            // let did = _parts2[0].toString()
+            let did = _parts2[0]
+            if (!(`@did=${did}` in result_group)) {
+              result_group[`@did=${did}`] = {}
             }
 
             //let parts = element.split('=')
@@ -1221,7 +1221,7 @@ phone
 
             regex_str = _parse_options_even_more_regex(key, regex_str)
             // result[key] = new RegExp(regex_str, "i")
-            result_group[`@fid=${fid}`][key] = new RegExp(regex_str, "i")
+            result_group[`@did=${did}`][key] = new RegExp(regex_str, "i")
             // console.log(element)
           }
 
@@ -1633,21 +1633,21 @@ phone
 
       let options = options_general || {}
       let item_props = item["properties"]
-      //let item_fid = 
+      //let item_did = 
 
-      // console.log('options before', item["__fid"], item["__tid"], options, options_specific)
+      // console.log('options before', item["__did"], item["__tid"], options, options_specific)
 
-      // if (options_specific !== null && `@fid=${item["__fid"]}` in options_specific) {
-      if (options_specific && options_specific[`@fid=${item["__fid"]}`]) {
-        // console.log('options tem especifico', item["__fid"], item["__tid"], options, options_specific[`@fid=${item["__fid"]}`])
-        for (const [key, value] of Object.entries(options_specific[`@fid=${item["__fid"]}`])) {
+      // if (options_specific !== null && `@did=${item["__did"]}` in options_specific) {
+      if (options_specific && options_specific[`@did=${item["__did"]}`]) {
+        // console.log('options tem especifico', item["__did"], item["__tid"], options, options_specific[`@did=${item["__did"]}`])
+        for (const [key, value] of Object.entries(options_specific[`@did=${item["__did"]}`])) {
           options[key] = value
         }
       } else {
-        // console.log('options !!!NAO!! tem especifico', item["__fid"], item["__tid"], options)
+        // console.log('options !!!NAO!! tem especifico', item["__did"], item["__tid"], options)
       }
 
-      // console.log('options after', item["__fid"], options, options_specific)
+      // console.log('options after', item["__did"], options, options_specific)
 
       let maches_count = 0
       let failed = false
@@ -1673,7 +1673,7 @@ phone
         }
         // console.log(`${key}: ${value}`);
       }
-      // console.log('passou', item["__fid"], item["__tid"], options)
+      // console.log('passou', item["__did"], item["__tid"], options)
       return true
     }
 
@@ -1745,18 +1745,18 @@ phone
       return dist_in_km <= (dist_in_m / 1000)
     }
 
-    function filter_in_fids(item, fids_list) {
-      // console.log('filter_in_fids', item, fids_list, item["__fid"], fids_list.indexOf(item["__fid"]) > -1)
+    function filter_in_dids(item, dids_list) {
+      // console.log('filter_in_dids', item, dids_list, item["__did"], dids_list.indexOf(item["__did"]) > -1)
 
       // Without explicitly list to filter, we assume its always pass
-      //if (!fids_list || fids_list.length === 0) {
-      // if (fids_list.length === 0) {
+      //if (!dids_list || dids_list.length === 0) {
+      // if (dids_list.length === 0) {
       //   return true
       // }
 
       // return false
 
-      return fids_list.indexOf(item["__fid"]) > -1
+      return dids_list.indexOf(item["__did"]) > -1
     }
 
 
@@ -1764,28 +1764,28 @@ phone
      * Returns false if an item matched one or more itens from reference file
      * true means it did not matched
      **/
-    function filter_substract_file(item, hide_fid, hide_fid_dist, hide_fid_keys) {
-      // console.log('filter_substract_file started', item, hide_fid, hide_fid_dist, hide_fid_keys)
+    function filter_substract_file(item, hide_did, hide_did_dist, hide_did_keys) {
+      // console.log('filter_substract_file started', item, hide_did, hide_did_dist, hide_did_keys)
 
-      if (hide_fid === -1) {
+      if (hide_did === -1) {
         // No source file to substract: skip
         return true
       }
 
-      if (hide_fid_dist <= -1 && hide_fid_keys.length === 0) {
+      if (hide_did_dist <= -1 && hide_did_keys.length === 0) {
         // console.log('filter_substract_file skipped 1')
         console.warn("filter_substract_file have clauses too flexible (any world distance, any tag)")
         // return true
-        // document.getElementById("hide_fid_output_log").innerText = "Universal exclusion?"
-        hide_fid_affected = ["Universal exclusion? (any distance, any tagging)"]
+        // document.getElementById("hide_did_output_log").innerText = "Universal exclusion?"
+        hide_did_affected = ["Universal exclusion? (any distance, any tagging)"]
         return false
       }
 
       // This should not happen
       if (item === null || !item["geometry"] || item["geometry"] === null) {
         // increase conter
-        // console.log('hide_fid_affected', hide_fid_affected)
-        // hide_fid_affected[item["__fid"]] -= 1
+        // console.log('hide_did_affected', hide_did_affected)
+        // hide_did_affected[item["__did"]] -= 1
         // console.log('filter_substract_file skipped 2')
         return false
       }
@@ -1795,22 +1795,22 @@ phone
       // As soon as we gind
       for (const source_item of SDMData.Main) {
         // No need to substract itens from subtracting file itself
-        if (source_item["__fid"] === hide_fid) {
-          // console.log('....', source_item["__fid"], hide_fid)
+        if (source_item["__did"] === hide_did) {
+          // console.log('....', source_item["__did"], hide_did)
           let okay = true
           let has_distmatch = null
           let has_keymatch = null
           // @TODO implement tagging check
 
 
-          if (hide_fid_keys.length > 0) {
+          if (hide_did_keys.length > 0) {
 
             // Keys exist, change from null to default false
             has_keymatch = false
 
             let _keys_matched = 0
             // console.log('before loop item vs source_item(file to match)', item, source_item)
-            for (const testkey of hide_fid_keys) {
+            for (const testkey of hide_did_keys) {
               //console.log('testkey', source_item["properties"])
               if (testkey in source_item["properties"] && testkey in item["properties"]) {
                 let _testval = source_item["properties"][testkey].toString()
@@ -1838,10 +1838,10 @@ phone
 
           // console.log('result taging for item', okay, item)
 
-          // if (hide_fid_dist > -1) {
-          if (hide_fid_dist > -1 && (has_keymatch === null || has_keymatch === true)) {
+          // if (hide_did_dist > -1) {
+          if (hide_did_dist > -1 && (has_keymatch === null || has_keymatch === true)) {
             has_distmatch = false
-            if (filter_by_dist(source_item["geometry"], item["geometry"], hide_fid_dist)) {
+            if (filter_by_dist(source_item["geometry"], item["geometry"], hide_did_dist)) {
               has_distmatch = true
               // console.log('prefect dist match', source_item, item)
             }
@@ -1854,8 +1854,8 @@ phone
           ) {
             // Already have a match, count and abort imediatelly
             // increase conter
-            // console.log('hide_fid_affected, must not be included', hide_fid_affected)
-            hide_fid_affected[item["__fid"]] -= 1
+            // console.log('hide_did_affected, must not be included', hide_did_affected)
+            hide_did_affected[item["__did"]] -= 1
             return false
           }
         }
@@ -1919,7 +1919,7 @@ phone
     function select_attributes(item, exportable_fields, input_file_index, temp_id, import_fields_anyifosm_nwr = true) {
       // @TODO keyval ; Only select attributes for properties
       let final = {
-        '__fid': input_file_index, // source file sequencial identifier (start from 1)
+        '__did': input_file_index, // source file sequencial identifier (start from 1)
         '__tid': temp_id, // temporary unique id, serial, starts from 1
         'type': item['type'],
         'geometry': item['geometry'],
@@ -2087,7 +2087,7 @@ phone
       let output = []
       collection.forEach(function (item) {
         // console.log('output_printer', item)
-        let __fid = item['__fid']
+        let __did = item['__did']
         let __tid = item['__tid']
         _maximum_displayed -= 1
         if (_maximum_displayed >= 0) {
@@ -2097,7 +2097,7 @@ phone
             item_group.push(`// note: [${item['_comment']}]`)
           }
 
-          item_group.push(`// [@fid=${__fid}; @tid=${__tid}] ${JSON.stringify(item['geometry'])}`)
+          item_group.push(`// [@did=${__did}; @tid=${__tid}] ${JSON.stringify(item['geometry'])}`)
 
           for (const [key, value] of Object.entries(item['properties'])) {
             item_group.push(`${key}=${value}`)
@@ -2830,8 +2830,8 @@ phone
             let original_data = JSON.parse(reader.result)
 
             original_data['features'].forEach(function (item, index) {
-              if ("__fid" in item) {
-                delete item["__fid"]
+              if ("__did" in item) {
+                delete item["__did"]
               }
               if ("__tid" in item) {
                 delete item["__tid"]
@@ -2995,13 +2995,13 @@ phone
       const parsed_general = _filter_parts[0]
       const parsed_specific = _filter_parts[1]
       // console.log('update_filter_imediate ___ 0')
-      //let fids_list = null
-      // let fids_list = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).forEach((element => console.log(element.dataset.fid)))
+      //let dids_list = null
+      // let dids_list = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).forEach((element => console.log(element.dataset.did)))
       // console.log('compiled regex filter', parsed_1)
 
-      if (hide_fid >= 0) {
-        // Prefill hide_fid_affected with zeroes
-        hide_fid_affected = new Array(WorkingInputFiles.length).fill(0);
+      if (hide_did >= 0) {
+        // Prefill hide_did_affected with zeroes
+        hide_did_affected = new Array(WorkingInputFiles.length).fill(0);
       }
 
       // console.log('refpoint_distance', refpoint_distance)
@@ -3016,7 +3016,7 @@ phone
         const item = SDMData.Main[index];
 
         // Disabled files filter
-        if (!filter_in_fids(item, enabled_files)) {
+        if (!filter_in_dids(item, enabled_files)) {
           continue
         }
 
@@ -3029,7 +3029,7 @@ phone
           continue
         }
         // // Use a reference dataset to filter elements from another dataset. CPU intensive
-        if (!filter_substract_file(item, hide_fid, hide_fid_dist, hide_fid_keys)) {
+        if (!filter_substract_file(item, hide_did, hide_did_dist, hide_did_keys)) {
           continue
         }
 
@@ -3037,7 +3037,7 @@ phone
 
         if (SDMData.MainPreview.length <= SDMConf.Preview.map) {
           SDMData.MainPreview.push(item)
-        } else if (focus_fid === item["__fid"] && SDMData.MainPreview.length <= (2 * SDMConf.Preview.map)) {
+        } else if (focus_did === item["__did"] && SDMData.MainPreview.length <= (2 * SDMConf.Preview.map)) {
           // If one dataset is focused, we allow up to 2 times the preview size
           // this could help when have two very large datasets, so the smaller
           // one does not keep being removed
@@ -3052,7 +3052,7 @@ phone
         const item = SDMData.Auxiliary[index];
 
         // Disabled files filter
-        if (!filter_in_fids(item, enabled_files)) {
+        if (!filter_in_dids(item, enabled_files)) {
           continue
         }
 
@@ -3065,7 +3065,7 @@ phone
           continue
         }
         // // Use a reference dataset to filter elements from another dataset. CPU intensive
-        if (!filter_substract_file(item, hide_fid, hide_fid_dist, hide_fid_keys)) {
+        if (!filter_substract_file(item, hide_did, hide_did_dist, hide_did_keys)) {
           continue
         }
 
@@ -3073,7 +3073,7 @@ phone
 
         if (SDMData.AuxiliaryPreview.length <= SDMConf.Preview.map) {
           SDMData.AuxiliaryPreview.push(item)
-        } else if (focus_fid === item["__fid"] && SDMData.AuxiliaryPreview.length <= (2 * SDMConf.Preview.map)) {
+        } else if (focus_did === item["__did"] && SDMData.AuxiliaryPreview.length <= (2 * SDMConf.Preview.map)) {
           // If one dataset is focused, we allow up to 2 times the preview size
           // this could help when have two very large datasets, so the smaller
           // one does not keep being removed
@@ -3097,12 +3097,12 @@ phone
       // console.log('SDMData.MainPreview', SDMData.MainPreview)
       //SDMData.MainPreview = items_to_display.slice(0, SDMConf.Preview.map)
 
-      if (hide_fid >= 0) {
-        // Prefill hide_fid_affected with zeroes
-        document.querySelector("#hide_fid_output_log").innerHTML = JSON.stringify(hide_fid_affected)
-        // hide_fid_affected = new Array(WorkingInputFiles.length).fill(0);
+      if (hide_did >= 0) {
+        // Prefill hide_did_affected with zeroes
+        document.querySelector("#hide_did_output_log").innerHTML = JSON.stringify(hide_did_affected)
+        // hide_did_affected = new Array(WorkingInputFiles.length).fill(0);
       } else {
-        document.querySelector("#hide_fid_output_log").innerHTML = ''
+        document.querySelector("#hide_did_output_log").innerHTML = ''
       }
 
       if (document.getElementById('ui_text_preview').checked) {
@@ -3382,9 +3382,9 @@ phone
           // http://localhost:8111/zoom?left=8.19&right=8.20&top=48.605&bottom=48.590
 
           //_links = _links + `| <a href="https://osm.org/#map=${_zoom}/${_lon}/${_lat}" target="_blank">OSM</a>`
-          item_group.push(`// [@fid=${feature["__fid"]}; @tid=${feature["__tid"]}] // ${_links}`)
+          item_group.push(`// [@did=${feature["__did"]}; @tid=${feature["__tid"]}] // ${_links}`)
         } else {
-          item_group.push(`// [@fid=${feature["__fid"]}; @tid=${feature["__tid"]}]`)
+          item_group.push(`// [@did=${feature["__did"]}; @tid=${feature["__tid"]}]`)
         }
 
         for (const [key, value] of Object.entries(feature['properties'])) {
@@ -3488,7 +3488,7 @@ phone
       //   // console.log(`${key}: ${value}`);
       //   let selection = []
       //   SDMData.MainPreview.forEach(function (item) {
-      //     if (item["__fid"] == key) {
+      //     if (item["__did"] == key) {
       //       selection.push(item)
       //     }
       //   })
@@ -3498,7 +3498,7 @@ phone
         // console.log('selection', selection)
 
         // let icon = L.divIcon({
-        //   className: 'fid-' + key
+        //   className: 'did-' + key
         // })
         // var greenIcon = new L.Icon({
         //   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
@@ -3511,13 +3511,13 @@ phone
 
 
         function createMarker(feature, latlng) {
-          const modulo = feature['__fid'] % list_icons.length
+          const modulo = feature['__did'] % list_icons.length
           // let selected_group = 
           // console.log('modulo', modulo, list_icons[modulo])
           // return L.marker(latlng, { icon: list_icons[modulo] });
           // return L.marker(latlng, { icon: greenIcon });
 
-          if (focus_fid === feature['__fid']) {
+          if (focus_did === feature['__did']) {
             return L.marker(latlng, { icon: list_iconsFocus[modulo] });
           } else {
             return L.marker(latlng, { icon: list_icons[modulo] });
@@ -3528,7 +3528,7 @@ phone
           onEachFeature: onEachFeature,
           pointToLayer: createMarker,
           //icon: icon,
-          //style: {className: 'fid-' + key}
+          //style: {className: 'did-' + key}
         }))
         //console.log('teste', teste)
         //console.log('teste', geoJsonLayer_cluster[teste])
@@ -3545,7 +3545,7 @@ phone
         //}
         //style: { color: "#0000ff" }
         // style: function (feature) {
-        //   return color_pallete(feature['__fid']);
+        //   return color_pallete(feature['__did']);
         //   // return { color: feature.properties.color };
         // },
         // }).addTo(map);
@@ -3584,8 +3584,8 @@ phone
       // console.log('map', map)
       // for (const [key, value] of Object.entries(markers._map._layers)) {
       //   console.log('value', value)
-      //   if (value.hasOwnProperty("features") && value["features"].hasOwnProperty("__fid")) {
-      //     value._icon.classList.add("fid-" + value["features"]["__fid"])
+      //   if (value.hasOwnProperty("features") && value["features"].hasOwnProperty("__did")) {
+      //     value._icon.classList.add("did-" + value["features"]["__did"])
       //   }
       // }
       // console.log('todo render_active')
@@ -3604,7 +3604,7 @@ phone
     }
 
 
-    const ui_map_pin_images = function (fid) {
+    const ui_map_pin_images = function (did) {
       // const _baseurl_icons = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-'
       const _baseurl_icons = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-'
       const list_icons = [
@@ -3619,32 +3619,32 @@ phone
         _baseurl_icons + "blue.png",
         _baseurl_icons + "black.png"
       ]
-      const modulo = fid % list_icons.length
+      const modulo = did % list_icons.length
       return list_icons[modulo]
     }
 
     const ui_datasets_list_event = function (event) {
       // console.log('ui_datasets_list_event', event)
 
-      hide_fid = parseInt(document.querySelector("#hide_fid").value)
-      hide_fid_dist = parseInt(document.querySelector("#hide_fid_dist").value)
-      hide_fid_keys = document.querySelector("#hide_fid_keys").value.split(",").map(x => x.trim()).filter(x => x)
-      focus_fid = parseInt(document.querySelector("#focus_fid").value)
+      hide_did = parseInt(document.querySelector("#hide_did").value)
+      hide_did_dist = parseInt(document.querySelector("#hide_did_dist").value)
+      hide_did_keys = document.querySelector("#hide_did_keys").value.split(",").map(x => x.trim()).filter(x => x)
+      focus_did = parseInt(document.querySelector("#focus_did").value)
 
-      if (hide_fid > -1) {
-        document.querySelector(`#check__fid${hide_fid}`).checked = false
+      if (hide_did > -1) {
+        document.querySelector(`#check__did${hide_did}`).checked = false
       }
 
-      if (focus_fid > -1) {
-        document.querySelector(`#check__fid${focus_fid}`).checked = true
-        if (hide_fid === focus_fid) {
-          hide_fid = -1
-          document.querySelector("#hide_fid").value = "-1"
+      if (focus_did > -1) {
+        document.querySelector(`#check__did${focus_did}`).checked = true
+        if (hide_did === focus_did) {
+          hide_did = -1
+          document.querySelector("#hide_did").value = "-1"
         }
       }
 
-      //filter_fids = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.fid)))
-      enabled_files = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.fid)))
+      //filter_dids = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.did)))
+      enabled_files = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.did)))
 
       update_filter_delayed()
       // update_map()
@@ -3656,10 +3656,10 @@ phone
       // }
     }
 
-    const ui_datasets_list_fid_itens_count = function (fid) {
+    const ui_datasets_list_did_itens_count = function (did) {
       let count = 0
       SDMData.Main.forEach(function (item) {
-        if (item["__fid"] == parseInt(fid)) {
+        if (item["__did"] == parseInt(did)) {
           count += 1
         }
       })
@@ -3687,10 +3687,10 @@ phone
       WorkingInputFiles.forEach(function (item, index) {
         // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
         _html.push(`<div class="form-check form-switch">
-  <input class="form-check-input" type="checkbox" role="switch" id="check__fid${index + 1}" data-fid="${index + 1}" checked onchange="ui_datasets_list_event(event)">
-  <label class="form-check-label" for="check__fid${index + 1}">
+  <input class="form-check-input" type="checkbox" role="switch" id="check__did${index + 1}" data-did="${index + 1}" checked onchange="ui_datasets_list_event(event)">
+  <label class="form-check-label" for="check__did${index + 1}">
     <img height="41" width="25" src="${ui_map_pin_images(index + 1)}"/>
-    [${ui_datasets_list_fid_itens_count(index + 1)}]
+    [${ui_datasets_list_did_itens_count(index + 1)}]
     ${item["name"]}
   </label>
 </div>`)
@@ -3700,7 +3700,7 @@ phone
       _html.push(`  <div class="col">`)
       _html.push(`    <div class="row">`)
       _html.push(`      <h3 class="h5">Datasets used to hide others</h3>`)
-      _html.push(`      <select class="form-select" aria-label="Dataset to substract" onchange="ui_datasets_list_event(event)" id="hide_fid">
+      _html.push(`      <select class="form-select" aria-label="Dataset to substract" onchange="ui_datasets_list_event(event)" id="hide_did">
   <option selected value="-1">- Dataset to substract - </option>`)
       WorkingInputFiles.forEach(function (item, index) {
         // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
@@ -3712,22 +3712,22 @@ phone
       _html.push(`      <div class="col">`)
       _html.push(`        <div class="input-group mb-3">
   <span class="input-group-text" id="">Distância (m)</span>
-  <input type="text" class="form-control" placeholder="-1 to disable" id="hide_fid_dist" aria-label="Distancia" value="25" onchange="ui_datasets_list_event(event)">
+  <input type="text" class="form-control" placeholder="-1 to disable" id="hide_did_dist" aria-label="Distancia" value="25" onchange="ui_datasets_list_event(event)">
 </div>`)
       _html.push(`      </div>`)
       _html.push(`      <div class="col">`)
       _html.push(`        <div class="input-group mb-3">
   <span class="input-group-text" id="">Keys</span>
-  <input type="text" class="form-control" placeholder="phone,email,ref:vatin" aria-label="Key" value="phone,email,ref:vatin" id="hide_fid_keys"  onchange="ui_datasets_list_event(event)">
+  <input type="text" class="form-control" placeholder="phone,email,ref:vatin" aria-label="Key" value="phone,email,ref:vatin" id="hide_did_keys"  onchange="ui_datasets_list_event(event)">
 </div>`)
       _html.push(`        </div>`)
       _html.push(`      </div>`)
       _html.push(`    <div>`)
-      _html.push(`      <output id="hide_fid_output_log"></output>`)
+      _html.push(`      <output id="hide_did_output_log"></output>`)
       _html.push(`    </div>`)
       _html.push(`    <div class="row">`)
       _html.push(`      <h3 class="h5">Dataset foco</h3>`)
-      _html.push(`      <select class="form-select" aria-label="Dataset de foco" onchange="ui_datasets_list_event(event)" id="focus_fid">
+      _html.push(`      <select class="form-select" aria-label="Dataset de foco" onchange="ui_datasets_list_event(event)" id="focus_did">
   <option selected value="-1">- Dataset de foco - </option>`)
       WorkingInputFiles.forEach(function (item, index) {
         // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
