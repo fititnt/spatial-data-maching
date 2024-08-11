@@ -1065,123 +1065,256 @@ phone
     //     });
     // }
 
-
-
-
-
-
-    /**
-     * 
-     **/
-    function geojson_feature_centroid(feature) {
-
-      // Sorry, that's what we got for now
-      return geojson_feature_pseudo_centroid(feature)
-    }
-
-    /**
-     *
-     * Not recommended use geojson_feature_centroid()
-     *
-     * Temporary function to do quick return coordinates
-     * of the first point instead of do the complex calculation
-     * 
-     **/
-    function geojson_feature_pseudo_centroid(feature) {
-      if (!feature || !("coordinates" in feature["geometry"])) {
-        return null
+    class Configuration {
+      name = 'sdm-project'
+      conf_raw = {}
+      // _promises_count = 0
+      // _promises = new Set([]);
+      _promises = new Set();
+      _fileupload = new Set();
+      constructor() {
+        // this.name = name
+        // this._init_object = init_object
       }
-      let one_lat = false
-      let one_lon = false
 
-      // https://datatracker.ietf.org/doc/html/rfc7946
-      let pos = feature["geometry"]["coordinates"]
-      // console.log('pos', pos, Array.isArray(pos), Array.isArray(pos[0]), pos.length)
-      if (Array.isArray(pos) && !Array.isArray(pos[0]) && pos.length >= 2) {
-        one_lat = pos[0]
-        one_lon = pos[1]
-      } else if (Array.isArray(pos) && Array.isArray(pos[0]) && pos[0].length >= 2) {
-        one_lat = pos[0][0]
-        one_lon = pos[0][1]
-      } else if (Array.isArray(pos) && Array.isArray(pos[0]) && Array.isArray(pos[0][0]) && pos[0][0].length >= 2) {
-        one_lat = pos[0][0][0]
-        one_lon = pos[0][0][1]
+      set name(name) {
+        this.name = name
       }
-      if (one_lat && one_lon) {
-        return [one_lat, one_lon]
-      }
-      return null
-    }
 
-    function get_field_latnon_if_exist(field_names) {
-      // let latitude = false
-      // let longitude = false
-      // let index_ = false
-
-      // for (let index = 0; index < SDMOption.AutoField.pos.latitude.length; index++) {
-      for (let index = 0; index < SDMOption.AutoField.pos.latitude.length; index++) {
-        const _lat = SDMOption.AutoField.pos.latitude[index];
-        const _lon = SDMOption.AutoField.pos.longitude[index];
-        if (field_names.indexOf(_lat) > -1 && field_names.indexOf(_lon) > -1) {
-          return [_lat, _lon]
+      add_data_file(url_or_fileupload, is_upload) {
+        if (is_upload) {
+          this._fileupload.add(url_or_fileupload)
         }
       }
 
-      return false
-    }
+      // set add_config(conf_object, uid = null) {
+      add_config(conf_object, uid_promise = null) {
+        if (!conf_object && uid_promise) {
+          this._promises.add(uid_promise)
+        } else {
+          // const conf_object = Configuration.object_from_yaml(config)
+          // this.conf_raw = { ...this.conf_raw, ...conf_object }
 
-    function get_field_wkt_if_exist(field_names) {
-      // early attempt to see if could have WKT field
-      for (let index = 0; index < SDMOption.AutoField.pos.mixed_point.length; index++) {
-        let _key = SDMOption.AutoField.pos.mixed_point[index]
-        if (_key in field_names) {
-          return _key
-        }
-      }
+          this.conf_raw = mergeDeep(this.conf_raw, conf_object)
+          // const temp = mergeDeep(this.conf_raw, conf_object)
 
-      return false
-    }
-
-    function get_field_latnon_if_wkt_exist(item_properties) {
-      // let latitude = false
-      // let longitude = false
-      // let index_ = false
-
-      function _extract(value) {
-        if (!!value && /^point|linestring|POLYGON.*/i.test(value)) {
-          const value2 = value.replace(/[a-zA-Z]+/, "").trim()
-          const value3 = value2.split(",")
-          const value4 = value3[0].replace("(", "").replace(")", "")
-          const value5 = value4.split(" ")
-          if (value5.length === 2) {
-            return value5
+          // this.conf_raw = temp
+          if (uid_promise) {
+            this._promises.delete(uid_promise)
           }
         }
+      }
+
+      add_config_remote(conf_remote_url, uid_promise = null) {
+
+        console.log('Configuration.add_config_remote started', conf_remote_url, uid_promise)
+        // const conf_object = Configuration.object_from_yaml(config)
+
+        // @TODO implement sequential merge of the configutation.
+        //       now it may load in not so predictable ways.
+
+        // console.log('SDMConf._.add_config_remote', conf_remote_url)
+
+        const that = this
+
+        if (!conf_remote_url && uid_promise) {
+
+          // This is just a hint for promisse we dont know content yet
+          this._promises.add(uid_promise)
+          return true
+        }
+
+        // this._promises.add(conf_remote_url)
+        this._promises.add(uid_promise || conf_remote_url)
+
+        let response_text = fetch(conf_remote_url)
+          .then((response) => {
+            if (!response.ok) {
+              throw Error(response.statusText)
+            }
+            // return response
+            return response.text()
+          })
+          // .then(function (response) {
+          .then(function (response_text) {
+            // const response_text = response.text()
+            const conf_object = Configuration.object_from_yaml(response_text)
+            // that.conf_raw = { ...that.conf_raw, ...conf_object }
+            that.conf_raw = mergeDeep(that.conf_raw, conf_object)
+
+            // that._promises.delete(conf_remote_url)
+            that._promises.delete(uid_promise || conf_remote_url)
+            // console.log('Configuration.add_config_remote finished', conf_remote_url)
+            // console.log('..that.conf_raw2', that.conf_raw, response_text)
+
+            //return response.text()
+          })
+          .catch((error) => {
+            reportErrorCritical("Configuration loading error", `[${conf_remote_url}] failed to load`)
+            // console.log(error);
+          });
+      }
+
+      get remote_data() {
+
+        // console.log('...remote_data conf_raw', this.conf_raw)
+        if (this.conf_raw && this.conf_raw.data && this.conf_raw.data.length > 0) {
+          return this.conf_raw.data
+        } else {
+          return null
+        }
+      }
+
+      ready(cb) {
+
+        // console.log('Configuration().ready() called', cb, this._promises)
+
+        const that = this
+        if (that._promises.size === 0) {
+          // console.log('Configuration().ready() already ready', that._promises)
+          cb()
+        } else {
+          const handle = setInterval(() => {
+            if (that._promises.size === 0) {
+              // console.log('Configuration().ready() now', that._promises)
+              clearInterval(handle);
+              cb()
+            } else {
+              // console.log('Configuration().ready(), waiting...', that._promises)
+            }
+          }, 100);
+        }
+      }
+
+      static object_from_yaml(yaml_text) {
+        // return {"aaaa": 2222}
+        // const yaml = require('js-yaml');
+        try {
+          const doc = jsyaml.load(yaml_text);
+          return doc
+        } catch (error) {
+          console.error(error);
+          return {}
+        }
+      }
+    }
+
+    class Geo {
+
+      static get_field_latnon_if_exist(field_names) {
+        // let latitude = false
+        // let longitude = false
+        // let index_ = false
+
+        // for (let index = 0; index < SDMOption.AutoField.pos.latitude.length; index++) {
+        for (let index = 0; index < SDMOption.AutoField.pos.latitude.length; index++) {
+          const _lat = SDMOption.AutoField.pos.latitude[index];
+          const _lon = SDMOption.AutoField.pos.longitude[index];
+          if (field_names.indexOf(_lat) > -1 && field_names.indexOf(_lon) > -1) {
+            return [_lat, _lon]
+          }
+        }
+
         return false
       }
 
-      // @TODO implement other more complex cases
-      //       https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry
+      static get_field_latnon_if_wkt_exist(item_properties) {
+        // let latitude = false
+        // let longitude = false
+        // let index_ = false
 
-      // for (let index = 0; index < SDMOption.AutoField.pos.latitude.length; index++) {
-      for (let index = 0; index < SDMOption.AutoField.pos.mixed_point.length; index++) {
-        let _key = SDMOption.AutoField.pos.mixed_point[index]
+        function _extract(value) {
+          if (!!value && /^point|linestring|POLYGON.*/i.test(value)) {
+            const value2 = value.replace(/[a-zA-Z]+/, "").trim()
+            const value3 = value2.split(",")
+            const value4 = value3[0].replace("(", "").replace(")", "")
+            const value5 = value4.split(" ")
+            if (value5.length === 2) {
+              return value5
+            }
+          }
+          return false
+        }
 
-        if (_key in item_properties) {
-          let _candidate = _extract(item_properties[_key])
-          if (_candidate !== false) {
-            return _candidate
+        // @TODO implement other more complex cases
+        //       https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry
+
+        // for (let index = 0; index < SDMOption.AutoField.pos.latitude.length; index++) {
+        for (let index = 0; index < SDMOption.AutoField.pos.mixed_point.length; index++) {
+          let _key = SDMOption.AutoField.pos.mixed_point[index]
+
+          if (_key in item_properties) {
+            let _candidate = _extract(item_properties[_key])
+            if (_candidate !== false) {
+              return _candidate
+            }
+          }
+
+          // // const _lat = SDMOption.AutoField.pos.latitude[index];
+          // const _lon = SDMOption.AutoField.pos.longitude[index];
+          // if (field_names.indexOf(_lat) > -1 && field_names.indexOf(_lon) > -1) {
+          //   return [_lat, _lon]
+          // }
+        }
+
+        return false
+      }
+
+      static get_field_wkt_if_exist(field_names) {
+        // early attempt to see if could have WKT field
+        for (let index = 0; index < SDMOption.AutoField.pos.mixed_point.length; index++) {
+          let _key = SDMOption.AutoField.pos.mixed_point[index]
+          if (_key in field_names) {
+            return _key
           }
         }
 
-        // // const _lat = SDMOption.AutoField.pos.latitude[index];
-        // const _lon = SDMOption.AutoField.pos.longitude[index];
-        // if (field_names.indexOf(_lat) > -1 && field_names.indexOf(_lon) > -1) {
-        //   return [_lat, _lon]
-        // }
+        return false
       }
 
-      return false
+      /**
+       * 
+       **/
+      static geojson_feature_centroid(feature) {
+
+        // Sorry, that's what we got for now
+        return geojson_feature_pseudo_centroid(feature)
+      }
+
+      /**
+       *
+       * Not recommended use geojson_feature_centroid()
+       *
+       * Temporary function to do quick return coordinates
+       * of the first point instead of do the complex calculation
+       * 
+       **/
+      static geojson_feature_pseudo_centroid(feature) {
+        if (!feature || !("coordinates" in feature["geometry"])) {
+          return null
+        }
+        let one_lat = false
+        let one_lon = false
+
+        // https://datatracker.ietf.org/doc/html/rfc7946
+        let pos = feature["geometry"]["coordinates"]
+        // console.log('pos', pos, Array.isArray(pos), Array.isArray(pos[0]), pos.length)
+        if (Array.isArray(pos) && !Array.isArray(pos[0]) && pos.length >= 2) {
+          one_lat = pos[0]
+          one_lon = pos[1]
+        } else if (Array.isArray(pos) && Array.isArray(pos[0]) && pos[0].length >= 2) {
+          one_lat = pos[0][0]
+          one_lon = pos[0][1]
+        } else if (Array.isArray(pos) && Array.isArray(pos[0]) && Array.isArray(pos[0][0]) && pos[0][0].length >= 2) {
+          one_lat = pos[0][0][0]
+          one_lon = pos[0][0][1]
+        }
+        if (one_lat && one_lon) {
+          return [one_lat, one_lon]
+        }
+        return null
+      }
+
     }
 
     class MatchingPrompt {
@@ -1356,141 +1489,6 @@ phone
       }
     }
 
-    class Configuration {
-      name = 'sdm-project'
-      conf_raw = {}
-      // _promises_count = 0
-      // _promises = new Set([]);
-      _promises = new Set();
-      _fileupload = new Set();
-      constructor() {
-        // this.name = name
-        // this._init_object = init_object
-      }
-
-      set name(name) {
-        this.name = name
-      }
-
-      add_data_file(url_or_fileupload, is_upload) {
-        if (is_upload) {
-          this._fileupload.add(url_or_fileupload)
-        }
-      }
-
-      // set add_config(conf_object, uid = null) {
-      add_config(conf_object, uid_promise = null) {
-        if (!conf_object && uid_promise) {
-          this._promises.add(uid_promise)
-        } else {
-          // const conf_object = Configuration.object_from_yaml(config)
-          // this.conf_raw = { ...this.conf_raw, ...conf_object }
-
-          this.conf_raw = mergeDeep(this.conf_raw, conf_object)
-          // const temp = mergeDeep(this.conf_raw, conf_object)
-
-          // this.conf_raw = temp
-          if (uid_promise) {
-            this._promises.delete(uid_promise)
-          }
-        }
-      }
-
-      add_config_remote(conf_remote_url, uid_promise = null) {
-
-        console.log('Configuration.add_config_remote started', conf_remote_url, uid_promise)
-        // const conf_object = Configuration.object_from_yaml(config)
-
-        // @TODO implement sequential merge of the configutation.
-        //       now it may load in not so predictable ways.
-
-        // console.log('SDMConf._.add_config_remote', conf_remote_url)
-
-        const that = this
-
-        if (!conf_remote_url && uid_promise) {
-
-          // This is just a hint for promisse we dont know content yet
-          this._promises.add(uid_promise)
-          return true
-        }
-
-
-        // this._promises.add(conf_remote_url)
-        this._promises.add(uid_promise || conf_remote_url)
-
-        let response_text = fetch(conf_remote_url)
-          .then((response) => {
-            if (!response.ok) {
-              throw Error(response.statusText)
-            }
-            // return response
-            return response.text()
-          })
-          // .then(function (response) {
-          .then(function (response_text) {
-            // const response_text = response.text()
-            const conf_object = Configuration.object_from_yaml(response_text)
-            // that.conf_raw = { ...that.conf_raw, ...conf_object }
-            that.conf_raw = mergeDeep(that.conf_raw, conf_object)
-
-            // that._promises.delete(conf_remote_url)
-            that._promises.delete(uid_promise || conf_remote_url)
-            // console.log('Configuration.add_config_remote finished', conf_remote_url)
-            // console.log('..that.conf_raw2', that.conf_raw, response_text)
-
-            //return response.text()
-          })
-          .catch((error) => {
-            reportErrorCritical("Configuration loading error", `[${conf_remote_url}] failed to load`)
-            // console.log(error);
-          });
-      }
-
-      get remote_data() {
-
-        // console.log('...remote_data conf_raw', this.conf_raw)
-        if (this.conf_raw && this.conf_raw.data && this.conf_raw.data.length > 0) {
-          return this.conf_raw.data
-        } else {
-          return null
-        }
-      }
-
-      ready(cb) {
-
-        // console.log('Configuration().ready() called', cb, this._promises)
-
-        const that = this
-        if (that._promises.size === 0) {
-          // console.log('Configuration().ready() already ready', that._promises)
-          cb()
-        } else {
-          const handle = setInterval(() => {
-            if (that._promises.size === 0) {
-              // console.log('Configuration().ready() now', that._promises)
-              clearInterval(handle);
-              cb()
-            } else {
-              // console.log('Configuration().ready(), waiting...', that._promises)
-            }
-          }, 100);
-        }
-      }
-
-      static object_from_yaml(yaml_text) {
-        // return {"aaaa": 2222}
-        // const yaml = require('js-yaml');
-        try {
-          const doc = jsyaml.load(yaml_text);
-          return doc
-        } catch (error) {
-          console.error(error);
-          return {}
-        }
-      }
-    }
-
     function match_tags(ref_props, item_props, rules, missing_ref = true, missing_target = true) {
       if (!rules || rules.length === 0) {
         // return true
@@ -1549,7 +1547,7 @@ phone
     function filter_by_reference_on_import(item) {
       // return true
       let item_props = item["properties"]
-      let item_pos = geojson_feature_centroid(item)
+      let item_pos = Geo.geojson_feature_centroid(item)
       let dist = -1
       // let already_failed = false
       let already_matched = null
@@ -1572,7 +1570,7 @@ phone
 
       for (let index = 0; index < SDMData.Reference.length; index++) {
         ref_item = SDMData.Reference[index];
-        ref_pos = geojson_feature_centroid(ref_item)
+        ref_pos = Geo.geojson_feature_centroid(ref_item)
         if (!ref_pos) {
           console.log('ref_item failed centroid', ref_pos, item_pos)
           continue
@@ -2195,7 +2193,7 @@ phone
 
           readFile(input_or_false, SDMConf._.remote_data)
         } else {
-          if (input_or_false !== false && remote_files.length === 0) {
+          if (input_or_false === false && remote_files.length === 0) {
             reportErrorCritical("No datasets to process", "Even if you loaded configurations, no dataset found on configurations/upload/URL parameters. Please restart.")
           }
           readFile(input_or_false, remote_files)
@@ -2446,8 +2444,8 @@ phone
 
                 if (_papa_initialize === false) {
                   _papa_initialize = true
-                  _papa_latlon = get_field_latnon_if_exist(Object.keys(row.data))
-                  _papa_wkt = get_field_wkt_if_exist(row.data)
+                  _papa_latlon = Geo.get_field_latnon_if_exist(Object.keys(row.data))
+                  _papa_wkt = Geo.get_field_wkt_if_exist(row.data)
                   // console.log('---', _papa_latlon, _papa_wkt, Object.keys(row.data))
                   if (_papa_latlon !== false || _papa_wkt !== false) {
                     _papa_to_geojson = true
@@ -2462,7 +2460,7 @@ phone
                     _lat = parseFloat(row.data[_papa_latlon[0]])
                     _lon = parseFloat(row.data[_papa_latlon[1]])
                   } else {
-                    _latlon = get_field_latnon_if_wkt_exist(row.data)
+                    _latlon = Geo.get_field_latnon_if_wkt_exist(row.data)
                     // console.log('..._latlon', _latlon, row.data)
                     if (_latlon !== false) {
                       // swaped?
