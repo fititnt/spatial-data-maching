@@ -2,8 +2,8 @@
 # --yaml-language-server: $schema=http://git.workspace.localhost/fititnt/spatial-data-maching/public/sdm.schema.json
 
 data:
-  - https://sdmtestdata.etica.ai/d/hospital.076.osm.geojson
-  - https://sdmtestdata.etica.ai/d/hospital.001.wikidata.tsv
+  - url: https://sdmtestdata.etica.ai/d/hospital.076.osm.geojson
+  - url: https://sdmtestdata.etica.ai/d/hospital.001.wikidata.tsv
 import_filter:
   - wikidata=.+
 

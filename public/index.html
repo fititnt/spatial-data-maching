@@ -240,7 +240,7 @@ short_name:.+
                   data-bs-title="Renamer for very common column names. Syntax: original_field|osm-schema-field|optional_function()">
                   🛈
                 </button>
-                <textarea class="form-control" data-conf="import_aliases.global" placeholder="" id="impor_aliases"
+                <textarea class="form-control" data-conf="import_aliases.global" placeholder="" id="import_aliases"
                   style="height: 200px" disabled>//Wikidata related (from HTML)
 itemLabel|name
 item|wikidata|helper_wikidata_q()
@@ -252,13 +252,20 @@ geo|coordinate_location|helper_point()
             <div class="row">
               <h3 class="h4">Selection of items to import</h3>
               <div class="col">
-                <label for="data_ex_filter">Filter for hardcoded key=value</label>
-                <button type="button" class="" data-bs-toggle="tooltip" data-bs-placement="top"
-                  data-bs-title="Fixed list which every imported item must match">
-                  🛈
-                </button>
-                <textarea class="form-control" placeholder="key=value
-addr:postcode=1234.?" data-conf="import_filter" id="data_ex_filter" style="height: 400px"></textarea>
+                <div class="mb-3">
+                  <label for="data_ex_filter">Filter for hardcoded key=value</label>
+                  <button type="button" class="" data-bs-toggle="tooltip" data-bs-placement="top"
+                    data-bs-title="Fixed list which every imported item must match">
+                    🛈
+                  </button>
+                  <textarea class="form-control" placeholder="key=value
+addr:postcode=1234.?" data-conf="import_filter" id="data_ex_filter" style="height: 100px"></textarea>
+                </div>
+                <div class="mb-3">
+                  <label for="match_strategy">Match Strategy</label>
+                  <textarea class="form-control" placeholder="" data-conf="match_strategy" id="match_strategy"
+                    style="height: 300px" disabled></textarea>
+                </div>
               </div>
               <div class="col">
                 <h4 class="h5">Use itens from a file to select items from import dataset</h4>
@@ -699,7 +706,9 @@ phone
       },
       FromURIParameters: {},
       FromConfFileRAW: {},
-      ImportAliasGlobal: [], // Conf: import_alias.[type=global]
+      ImportAliasGlobal: [], // Conf: import_aliases.[type=global]
+      ImportFilterGlobal: [], // Conf: import_filter
+      ImportMatchStrategy: [], // Conf: match_strategy
       ImportKeysGlobal: [], // Conf: import_keys.[type=global]
       conf_init_file: "./init.sdm.yml",
       conf_init_extras: [
@@ -1046,6 +1055,8 @@ phone
         if (that._promises.size === 0) {
           // console.log('Configuration().ready() already ready', that._promises)
           that.update_import_alias()
+          that.update_import_filter()
+          that.update_import_match_strategy()
           that.update_import_keys()
           cb()
         } else {
@@ -1054,6 +1065,8 @@ phone
               // console.log('Configuration().ready() now', that._promises)
               clearInterval(handle);
               that.update_import_alias()
+              that.update_import_filter()
+              that.update_import_match_strategy()
               that.update_import_keys()
               cb()
             } else {
@@ -1077,12 +1090,12 @@ phone
 
       update_import_alias() {
 
-        console.log('updatupdate_import_aliase_import_keys run')
+        // console.log('update_import_alias run')
         const el = document.querySelectorAll("[data-conf='import_aliases.global']")[0]
         let alias_list = []
         let alias_list_clean = new Set()
         if (this.conf_raw && this.conf_raw.import_aliases && this.conf_raw.import_aliases.length > 0) {
-          console.log('... internal update_import_alias')
+          // console.log('... internal update_import_alias')
           for (let index = 0; index < this.conf_raw.import_aliases.length; index++) {
             const element = this.conf_raw.import_aliases[index]
             if (element.type && element.type === 'global') {
@@ -1105,14 +1118,70 @@ phone
         }
       }
 
+      update_import_filter() {
+
+        // console.log('update_import_filter run')
+        const el = document.querySelectorAll("[data-conf='import_filter']")[0]
+        let filter_list = []
+        let filter_list_clean = new Set()
+        if (this.conf_raw && this.conf_raw.import_filter && this.conf_raw.import_filter.length > 0) {
+          // console.log('... internal update_import_filter')
+          for (let index = 0; index < this.conf_raw.import_filter.length; index++) {
+            const element = this.conf_raw.import_filter[index]
+            // console.log('el', element)
+            filter_list.push(element)
+            if (!element.trim().startsWith("//")) {
+              let pairs = element.trim().split("=")
+              filter_list_clean.add(pairs)
+            }
+          }
+
+          if (filter_list.length > 0) {
+            el.value = filter_list.join("\n")
+          }
+          if (filter_list_clean.size > 0) {
+            SDMConf.ImportFilterGlobal = filter_list_clean
+          }
+        }
+      }
+
+      update_import_match_strategy() {
+
+        // @TODO finish update_import_match_strategy()
+
+        console.log('update_import_match_strategy run')
+        const el = document.querySelectorAll("[data-conf='match_strategy']")[0]
+        let ms_list = []
+        let ms_list_clean = new Set()
+        if (this.conf_raw && this.conf_raw.import_filter && this.conf_raw.import_filter.length > 0) {
+          console.log('... internal update_import_match_strategy')
+          for (let index = 0; index < this.conf_raw.import_filter.length; index++) {
+            const element = this.conf_raw.import_filter[index]
+            console.log('el', element)
+            // ms_list.push(element)
+            // if (!element.trim().startsWith("//")) {
+            //   let pairs = element.trim().split("=")
+            //   ms_list_clean.add(pairs)
+            // }
+          }
+
+          if (ms_list.length > 0) {
+            el.value = ms_list.join("\n")
+          }
+          if (ms_list_clean.size > 0) {
+            SDMConf.ImportMatchStrategy = ms_list_clean
+          }
+        }
+      }
+
       update_import_keys() {
 
-        console.log('update_import_keys run')
+        // console.log('update_import_keys run')
         const el = document.querySelectorAll("[data-conf='import_keys.global']")[0]
         let keys_list = []
         let keys_list_clean = new Set()
         if (this.conf_raw && this.conf_raw.import_keys && this.conf_raw.import_keys.length > 0) {
-          console.log('... internal update_import_keys')
+          // console.log('... internal update_import_keys')
           for (let index = 0; index < this.conf_raw.import_keys.length; index++) {
             const element = this.conf_raw.import_keys[index]
             if (element.type && element.type === 'global') {
