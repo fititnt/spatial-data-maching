@@ -106,8 +106,8 @@
               <div class="col">
                 <label for="external-data-file" class="form-label visually-hidden">Load external files</label>
                 <input class="form-control form-control-lg" id="external-data-file" type="file"
-                  onchange="readFilesOrParameters(this)" accept=".json, .geojson, .geojsonl, .csv, .tsv, .yaml, .yml"
-                  multiple>
+                  onchange="Loader.readFilesOrParameters(this)"
+                  accept=".json, .geojson, .geojsonl, .csv, .tsv, .yaml, .yml" multiple>
 
                 <!-- <label for="fileNum">Arquivos:</label> -->
                 Files:
@@ -268,7 +268,7 @@ addr:postcode=1234.?" id="data_ex_filter" style="height: 400px"></textarea>
                     data-bs-title="Select one or more files where the items of imported files must match to at least one item of these reference files">
                     🛈
                   </button>
-                  <input class="form-control" type="file" id="import_reffile" onchange="readFileReference(this)"
+                  <input class="form-control" type="file" id="import_reffile" onchange="Loader.readFileReference(this)"
                     accept=".json, .geojson" multiple>
                 </div>
                 <div class="input-group mb-3">
@@ -619,11 +619,11 @@ phone
   -->
   <div style="position: fixed;  bottom: 0; padding: 5px; width: 100%;">
     V:
-    <input type="checkbox" value="" id="v_meta" onchange="ui_clean(event)" checked>
-    <input type="checkbox" value="" id="v_filter_up" onchange="ui_clean(event)" checked>
-    <input type="checkbox" value="" id="v_filter_bottom" onchange="ui_clean(event)" checked>
+    <input type="checkbox" value="" id="v_meta" onchange="UI.ui_clean(event)" checked>
+    <input type="checkbox" value="" id="v_filter_up" onchange="UI.ui_clean(event)" checked>
+    <input type="checkbox" value="" id="v_filter_bottom" onchange="UI.ui_clean(event)" checked>
     |
-    <input type="checkbox" value="" id="v_map_autofocus" onchange="ui_clean(event)" checked
+    <input type="checkbox" value="" id="v_map_autofocus" onchange="UI.ui_clean(event)" checked
       title="enable/disable map autofocus when filters change">
   </div>
 
@@ -858,6 +858,7 @@ phone
       _readfile_start_time: -1
     }
 
+
     // Loading order = index do arquivo
     //var WorkingInputFiles = []
     // var refpoint_latlon = null // [-12.34, 56.78]
@@ -919,111 +920,6 @@ phone
     // const render_active = document.getElementById("render_active");
 
 
-
-    /**
-      * Calculates the haversine distance between point A, and B.
-      * @author https://stackoverflow.com/a/48805273/894546
-      *
-      * @param {number[]} latlngA [lat, lng] point A
-      * @param {number[]} latlngB [lat, lng] point B
-      * @param {boolean} isMiles If we are using miles, else km.
-      */
-    const haversineDistance = ([lat1, lon1], [lat2, lon2], isMiles = false) => {
-      const toRadian = angle => (Math.PI / 180) * angle;
-      const distance = (a, b) => (Math.PI / 180) * (a - b);
-      const RADIUS_OF_EARTH_IN_KM = 6371;
-
-      const dLat = distance(lat2, lat1);
-      const dLon = distance(lon2, lon1);
-
-      lat1 = toRadian(lat1);
-      lat2 = toRadian(lat2);
-
-      // Haversine Formula
-      const a =
-        Math.pow(Math.sin(dLat / 2), 2) +
-        Math.pow(Math.sin(dLon / 2), 2) * Math.cos(lat1) * Math.cos(lat2);
-      const c = 2 * Math.asin(Math.sqrt(a));
-
-      let finalDistance = RADIUS_OF_EARTH_IN_KM * c;
-
-      if (isMiles) {
-        finalDistance /= 1.60934;
-      }
-
-      return finalDistance;
-    };
-
-    /**
-     * Calculate datetime difference betewn dates
-     * Used for profile of loading very large files
-     *
-     * @author https://stackoverflow.com/a/59793084/894546
-     **/
-    function humanDiff(t1, t2) {
-      const diff = Math.max(t1, t2) - Math.min(t1, t2)
-      const SEC = 1000, MIN = 60 * SEC, HRS = 60 * MIN
-
-      const hrs = Math.floor(diff / HRS)
-      const min = Math.floor((diff % HRS) / MIN).toLocaleString('en-US', { minimumIntegerDigits: 2 })
-      const sec = Math.floor((diff % MIN) / SEC).toLocaleString('en-US', { minimumIntegerDigits: 2 })
-      const ms = Math.floor(diff % SEC).toLocaleString('en-US', { minimumIntegerDigits: 4, useGrouping: false })
-
-      return `${hrs}:${min}:${sec}.${ms}`
-    }
-
-    /**
-    * Performs a deep merge of objects and returns new object. Does not modify
-    * objects (immutable) and merges arrays via concatenation.
-    * 
-    * @author https://stackoverflow.com/a/48218209/894546
-    *
-    * @param {...object} objects - Objects to merge
-    * @returns {object} New object with merged key/values
-    */
-    function mergeDeep(...objects) {
-      const isObject = obj => obj && typeof obj === 'object';
-
-      return objects.reduce((prev, obj) => {
-        Object.keys(obj).forEach(key => {
-          const pVal = prev[key];
-          const oVal = obj[key];
-
-          if (Array.isArray(pVal) && Array.isArray(oVal)) {
-            prev[key] = pVal.concat(...oVal);
-          }
-          else if (isObject(pVal) && isObject(oVal)) {
-            prev[key] = mergeDeep(pVal, oVal);
-          }
-          else {
-            prev[key] = oVal;
-          }
-        });
-
-        return prev;
-      }, {});
-    }
-
-    /**
-     * Use to show a popup modal. Intended only for very critical errors,
-     * the type that would require reload the page and/or change
-     * configurations.
-     * 
-     **/
-    function reportErrorCritical(title, description) {
-      let title_msg = "Critical: " + title
-
-      console.error("reportErrorCritical", title, description)
-
-      document.getElementById("criticalErrorModalLabel").innerText = title_msg
-      // document.getElementById("critical_error_desc").innerText = description
-      document.getElementById("critical_error_desc").innerHTML = description
-
-      let modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('criticalErrorModal'))
-      modal.show();
-      // modal.hide();
-
-    }
     // /**
     //  * Fetch remote file. For use that mimic syncronous
     //  * fetch:
@@ -1070,7 +966,7 @@ phone
           // const conf_object = Configuration.object_from_yaml(config)
           // this.conf_raw = { ...this.conf_raw, ...conf_object }
 
-          this.conf_raw = mergeDeep(this.conf_raw, conf_object)
+          this.conf_raw = Helper.mergeDeep(this.conf_raw, conf_object)
           // const temp = mergeDeep(this.conf_raw, conf_object)
 
           // this.conf_raw = temp
@@ -1115,7 +1011,7 @@ phone
             // const response_text = response.text()
             const conf_object = Configuration.object_from_yaml(response_text)
             // that.conf_raw = { ...that.conf_raw, ...conf_object }
-            that.conf_raw = mergeDeep(that.conf_raw, conf_object)
+            that.conf_raw = Helper.mergeDeep(that.conf_raw, conf_object)
 
             // that._promises.delete(conf_remote_url)
             that._promises.delete(uid_promise || conf_remote_url)
@@ -1125,7 +1021,7 @@ phone
             //return response.text()
           })
           .catch((error) => {
-            reportErrorCritical("Configuration loading error", `[${conf_remote_url}] failed to load`)
+            UI.reportErrorCritical("Configuration loading error", `[${conf_remote_url}] failed to load`)
             // console.log(error);
           });
       }
@@ -1175,6 +1071,41 @@ phone
     }
 
     class Geo {
+
+
+      /**
+        * Calculates the haversine distance between point A, and B.
+        * @author https://stackoverflow.com/a/48805273/894546
+        *
+        * @param {number[]} latlngA [lat, lng] point A
+        * @param {number[]} latlngB [lat, lng] point B
+        * @param {boolean} isMiles If we are using miles, else km.
+        */
+      static haversineDistance = ([lat1, lon1], [lat2, lon2], isMiles = false) => {
+        const toRadian = angle => (Math.PI / 180) * angle;
+        const distance = (a, b) => (Math.PI / 180) * (a - b);
+        const RADIUS_OF_EARTH_IN_KM = 6371;
+
+        const dLat = distance(lat2, lat1);
+        const dLon = distance(lon2, lon1);
+
+        lat1 = toRadian(lat1);
+        lat2 = toRadian(lat2);
+
+        // Haversine Formula
+        const a =
+          Math.pow(Math.sin(dLat / 2), 2) +
+          Math.pow(Math.sin(dLon / 2), 2) * Math.cos(lat1) * Math.cos(lat2);
+        const c = 2 * Math.asin(Math.sqrt(a));
+
+        let finalDistance = RADIUS_OF_EARTH_IN_KM * c;
+
+        if (isMiles) {
+          finalDistance /= 1.60934;
+        }
+
+        return finalDistance;
+      };
 
       static get_field_latnon_if_exist(field_names) {
         // let latitude = false
@@ -1288,6 +1219,905 @@ phone
           return [one_lat, one_lon]
         }
         return null
+      }
+
+    }
+
+    /**
+     * Functions that do not fit other classes
+     *
+     **/
+    class Helper {
+
+      //let debounceTimer;
+      static debounce = (callback, time) => {
+        // window.clearTimeout(debounceTimer);
+        window.clearTimeout(_Etc.debounceTimerFilters);
+        // debounceTimer = window.setTimeout(callback, time);
+        _Etc.debounceTimerFilters = window.setTimeout(callback, time);
+      }
+
+      /**
+       * Calculate datetime difference betewn dates
+       * Used for profile of loading very large files
+       *
+       * @author https://stackoverflow.com/a/59793084/894546
+       **/
+      static humanDiff(t1, t2) {
+        const diff = Math.max(t1, t2) - Math.min(t1, t2)
+        const SEC = 1000, MIN = 60 * SEC, HRS = 60 * MIN
+
+        const hrs = Math.floor(diff / HRS)
+        const min = Math.floor((diff % HRS) / MIN).toLocaleString('en-US', { minimumIntegerDigits: 2 })
+        const sec = Math.floor((diff % MIN) / SEC).toLocaleString('en-US', { minimumIntegerDigits: 2 })
+        const ms = Math.floor(diff % SEC).toLocaleString('en-US', { minimumIntegerDigits: 4, useGrouping: false })
+
+        return `${hrs}:${min}:${sec}.${ms}`
+      }
+
+      /**
+      * Performs a deep merge of objects and returns new object. Does not modify
+      * objects (immutable) and merges arrays via concatenation.
+      * 
+      * @author https://stackoverflow.com/a/48218209/894546
+      *
+      * @param {...object} objects - Objects to merge
+      * @returns {object} New object with merged key/values
+      */
+      static mergeDeep(...objects) {
+        const isObject = obj => obj && typeof obj === 'object';
+
+        return objects.reduce((prev, obj) => {
+          Object.keys(obj).forEach(key => {
+            const pVal = prev[key];
+            const oVal = obj[key];
+
+            if (Array.isArray(pVal) && Array.isArray(oVal)) {
+              prev[key] = pVal.concat(...oVal);
+            }
+            else if (isObject(pVal) && isObject(oVal)) {
+              prev[key] = Helper.mergeDeep(pVal, oVal);
+            }
+            else {
+              prev[key] = oVal;
+            }
+          });
+
+          return prev;
+        }, {});
+      }
+
+    }
+
+    class Loader {
+
+      /**
+       * readFile. Accept either the input element (the one user select files from disk)
+       * or a list of remote files to load.
+       * 
+       * Ideally this should be refactored, but is working for now.
+       * 
+       **/
+      static async readFile(input, remote_files) {
+        // if (input.files.length > 1) {
+        //   console.warn('No momento implementado apenas primiro arquivo. Ignorando demais')
+        // }
+        // let _data_ex_count_i = 0
+        var _data_ex_count_i = 0
+        // let _data_ex_count_t = 0
+        var _data_ex_count_t = 0
+        let filter_options = MatchingPrompt.parse_options(UIb.data_ex_filter.value)
+        let fields_to_export = MatchingPrompt.parse_options_simple(UIb.data_ex_fields_exporter.value)
+        const import_fields_anyifosm_nwr = document.getElementById("import_fields_anyifosm_nwr").checked
+        var examples = []
+        // let files_loaded = 0
+        var files_loaded = 0
+        let files_csv_total = 0
+        let files_csv_finished = 0
+        // let reader = null
+        // input.files.forEach(function (file) {
+
+        let stack_left = []
+        // const start_time = new Date()
+        _Etc._readfile_start_time = new Date()
+
+        // Array.from(input.files).forEach(function (file) {
+        //   stack_left.push(file)
+        // })
+
+        // Array.from(input.files).forEach(function (file) {
+        function readFileMainLoop(file, remote_file) {
+
+          _Etc.WorkingInputFiles.push(file || remote_file)
+
+          //START
+          async function processIndividualFile(
+            file, remote_file, cb
+          ) {
+
+            let is_file_upload = true
+            let data_file_uid = ""
+
+
+            if (!file) {
+              // merely to mimic file.name
+              file = remote_file
+            }
+
+            if (!file.name.endsWith(".yml") && !file.name.endsWith(".yaml")) {
+              // console.log(')))000000file', file)
+              // console.log(')))000000file', typeof file)
+              // if (file instanceof File) {
+              // if (input && input.files) {
+              // if (!file.name.startsWith("http")) {
+              // if (!file.name.startsWith("http")) {
+              if (!file.url) {
+                data_file_uid = "file://" + file.name
+              } else {
+                data_file_uid = file.url
+              }
+              SDMData._SourceFilesStarted.add(data_file_uid)
+            }
+
+            if (file.name.endsWith(".yml") || file.name.endsWith(".yaml")) {
+              // skip. already done earlier
+
+            } else if (file.name.endsWith(".geojsonl")) {
+              // console.log("Note: geojsonl still imperfect implementation")
+
+              let _last_part = ''
+              let _separator = null
+              let _current_parts = []
+              let _active_part = ''
+              let _skipped_chunks_parts = 0
+
+              let input_file_index = files_loaded + 1
+
+              let profile_times = {
+
+              }
+
+              // @TODO this part of remote stream for geojsonl needs be tested
+              // _streamfile = file || remote_file._response
+              // _streamfile = file || fetch(remote_file)
+              let _streamfile = file
+              //let _download = null
+
+              //console.log('..lk.', file, remote_file)
+
+              if (remote_file && remote_file.url) {
+
+                // @TODO implement loading .geojsonl from remote sources (fititnt - 2024-08-08 22:37 BRT)
+                console.warn("IMPORTANT: reading .geojsonl not fully implemented for remote sources (uploading from local disk should still be working)")
+                // @see https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_streams
+                // @see https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+                _streamfile = remote_file._response
+                _streamfile = fetch(remote_file.url).then(
+                  response => { return response.body.getReader() }
+                )
+                //_streamfile = remote_file.response
+                // _file = remote_file.url
+                //_download = true
+              }
+
+              //file
+              _streamfile
+                .stream()
+                .pipeThrough(new TextDecoderStream())
+                .pipeTo(new WritableStream({
+                  start(controller) {
+                    profile_times[file.name] = new Date()
+                    console.log(`WritableStream start: ${file.name}`)
+                    // if (console.profile) {
+                    //   console.profile(`WritableStream${file.name}`)
+                    // }
+                  },
+                  write(textChunk) {
+                    let _active_stack = []
+                    let _geojson_string = ''
+                    let _geojson_object = null
+                    let match_score = -1
+
+                    // RS + LF
+                    // https://www.rfc-editor.org/rfc/rfc8142
+                    if (textChunk.includes(String.fromCharCode(30, 10))) {
+                      _current_parts = textChunk.split(String.fromCharCode(30, 10))
+                    } else {
+                      _current_parts = [textChunk]
+                    }
+
+                    _current_parts = _current_parts.filter(Boolean)
+
+                    while (_current_parts.length != 0) {
+                      if (_last_part != '') {
+                        _active_part = _last_part + _current_parts.shift()
+                        _last_part = []
+                      } else {
+                        _active_part = _last_part + _current_parts.shift().trim("\n")
+                      }
+                      _active_stack.push(_active_part)
+                    }
+
+                    while (_active_stack.length != 0) {
+                      _geojson_string = _active_stack.shift()
+                      _geojson_object = null
+                      try {
+                        _geojson_object = JSON.parse(_geojson_string);
+
+                        // Try to clean last as soon as theres a clean match
+                        _last_part = ''
+                      } catch (e) {
+                        // At end of chunk part is expected to sometimes have partial
+                        if (_active_stack.length === 0) {
+                          _active_part = _last_part + _geojson_string
+                        } else {
+                          _skipped_chunks_parts += 1
+                          // console.error(`fileReader ${file} error in the middle of chunks`, e, _geojson_string)
+                        }
+                      }
+
+                      if (_geojson_object !== null) {
+                        _data_ex_count_t += 1
+
+                        if (!(filter_options === null || Matcher.filter(_geojson_object, filter_options))) {
+                          continue
+                        }
+
+                        if (SDMData.Reference.length !== 0) {
+                          match_score = Matcher.filter_by_reference_on_import(_geojson_object, SDMConf.Reference)
+                          // console.log('__match_score', match_score, item3, SDMConf.Reference)
+                          if (match_score < 50) {
+                            continue
+                          }
+                        }
+                        _data_ex_count_i += 1
+                        SDMData.Main.push(Matcher.select_attributes(_geojson_object, fields_to_export, input_file_index, _data_ex_count_i, import_fields_anyifosm_nwr))
+
+                      }
+                    }
+
+                  },
+                  close(controller) {
+                    const t1 = profile_times[file.name]
+                    const t2 = new Date()
+                    const diff = Helper.humanDiff(t1, t2)
+                    console.log(`WritableStream end: ${file.name} took: ${diff}`)
+                    // if (console.profile) {
+                    //   console.profileEnd(`WritableStream${file.name}`)
+                    // }
+
+                    return new Promise((resolve, reject) => {
+                      cb(`Loaded ${file.name}`)
+                      SDMData._SourceFilesFinished.add(data_file_uid)
+                      resolve()
+                    })
+                  },
+                  // }, queuingStrategy))
+                }))
+
+              // @TODO check if here will work the fileloaded
+              // files_loaded += 1
+
+            } else if (file.name.endsWith(".csv") || file.name.endsWith(".tsv")) {
+              // console.log("@TODO", file)
+              var input_file_index = files_loaded + 1
+
+              let _papa_initialize = false
+              let _papa_to_geojson = false
+              let _papa_latlon = []
+              let _papa_wkt = false
+              let _papa_wkt_field = ''
+
+              files_csv_total += 1
+
+              let _file = file
+              let _download = null
+              if (remote_file && remote_file.url) {
+                _file = remote_file.url
+                _download = true
+              }
+
+              // console.log('########papaparse', _file, remote_file)
+
+              // Papa.parse(bigFile, {
+              // Papa.parse(file, {
+              Papa.parse(_file, {
+                worker: false,
+                download: _download,
+                header: true,
+                step: function (row) {
+                  // console.log("Row:", row.data);
+                  _data_ex_count_i += 1
+
+                  // tabular input more likely to need this
+                  row.data = MatchingPrompt._import_keys_renamer(row.data)
+                  row.data = MatchingPrompt._import_values_processor(row.data)
+
+                  if (_papa_initialize === false) {
+                    _papa_initialize = true
+                    _papa_latlon = Geo.get_field_latnon_if_exist(Object.keys(row.data))
+                    _papa_wkt = Geo.get_field_wkt_if_exist(row.data)
+                    // console.log('---', _papa_latlon, _papa_wkt, Object.keys(row.data))
+                    if (_papa_latlon !== false || _papa_wkt !== false) {
+                      _papa_to_geojson = true
+                    }
+                  }
+
+                  let _lat = 0.0
+                  let _lon = 0.0
+                  let _latlon = []
+                  if (_papa_to_geojson) {
+                    if (_papa_latlon !== false) {
+                      _lat = parseFloat(row.data[_papa_latlon[0]])
+                      _lon = parseFloat(row.data[_papa_latlon[1]])
+                    } else {
+                      _latlon = Geo.get_field_latnon_if_wkt_exist(row.data)
+                      // console.log('..._latlon', _latlon, row.data)
+                      if (_latlon !== false) {
+                        // swaped?
+                        _lat = parseFloat(_latlon[1])
+                        _lon = parseFloat(_latlon[0])
+                      }
+                    }
+                  }
+                  if (isNaN(_lat) || isNaN(_lon)) {
+                    _lat = 0.0
+                    _lon = 0.0
+                  }
+                  // console.log( [_lon, _lat])
+
+                  let active_item = Matcher.select_attributes({
+                    // "geometry": {
+                    "geometry": {
+                      "type": "Point",
+                      // "coordinates": [0.0, 0.0]
+                      "coordinates": [_lon, _lat]
+                    },
+                    "properties": row.data,
+                    "type": "Feature"
+                  }, fields_to_export, input_file_index, _data_ex_count_i)
+
+                  // console.log('Papa.parse start', active_item)
+
+                  if (!(filter_options === null || Matcher.filter(active_item, filter_options))) {
+                    return true
+                  }
+
+                  // console.log('Papa.parse end', active_item)
+
+                  if (SDMData.Reference.length !== 0) {
+                    match_score = Matcher.filter_by_reference_on_import(active_item, SDMConf.Reference)
+                    // console.log('__match_score', match_score, item3, SDMConf.Reference)
+                    if (match_score < 50) {
+                      return true
+                    }
+                  }
+
+                  // const _data_ex_count_t_local = _data_ex_count_t
+                  if (_papa_to_geojson) {
+                    SDMData.Main.push(active_item)
+                  } else {
+                    SDMData.Auxiliary.push(active_item)
+                  }
+
+
+                },
+                complete: function () {
+                  console.log("CSV import for file finished", file)
+                  // SDMData.AuxiliaryPreview = SDMData.Auxiliary
+                  files_csv_finished += 1
+                  return new Promise((resolve, reject) => {
+                    cb(`Loaded ${file.name}`)
+                    SDMData._SourceFilesFinished.add(data_file_uid)
+                    resolve()
+                  })
+                }
+              });
+            } else {
+
+              var input_file_index = files_loaded + 1
+
+              // Last part: generic json/geojson (either remote or local)
+
+              // console.log('poin')
+
+              function _parser_geojson_text(text) {
+                let original_data = JSON.parse(text)
+
+                for (let index = 0; index < original_data['features'].length; index++) {
+                  const item3 = original_data['features'][index];
+                  _data_ex_count_t += 1
+
+                  if (!(filter_options === null || Matcher.filter(item3, filter_options))) {
+                    continue
+                  }
+
+                  if (SDMData.Reference.length !== 0) {
+                    let match_score = Matcher.filter_by_reference_on_import(item3, SDMConf.Reference)
+                    // console.log('__match_score', match_score, item3, SDMConf.Reference)
+                    if (match_score < 50) {
+                      continue
+                    }
+                  }
+
+                  _data_ex_count_i += 1
+                  SDMData.Main.push(Matcher.select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
+
+                  examples.push(original_data['features'][0])
+                }
+              }
+
+              if (!!remote_file) {
+
+                console.log('Remote fetch...', remote_file)
+
+                try {
+                  const _text = await remote_file._response.text();
+
+                  //console.log('remote start....', _text)
+                  if (_text && _text.length > 0) {
+                    _parser_geojson_text(_text)
+                  }
+                } catch (error) {
+                  console.error(file.name, error, remote_file._response.error);
+                } finally {
+                  return new Promise((resolve, reject) => {
+                    cb(`Loaded ${file.name}`)
+                    SDMData._SourceFilesFinished.add(data_file_uid)
+                    resolve()
+                  })
+                }
+
+              } else {
+                let reader = new FileReader();
+                reader.readAsText(file);
+                // console.log('files_loaded', files_loaded, )
+                // var input_file_index = files_loaded + 1
+                let match_score = 0
+
+                reader.onload = function () {
+                  // console.log('loaded this', this)
+
+                  try {
+
+                    // Check for empty file
+                    if (reader.result && reader.result.length > 0) {
+                      _parser_geojson_text(reader.result)
+                    }
+                  } catch (error) {
+                    console.error(file.name, error, reader.result)
+                    // Expected output: ReferenceError: nonExistentFunction is not defined
+                    // (Note: the exact output may be browser-dependent)
+                  } finally {
+                    return new Promise((resolve, reject) => {
+                      cb(`Loaded ${file.name}`)
+                      SDMData._SourceFilesFinished.add(data_file_uid)
+                      resolve()
+                    })
+                  }
+
+                  // files_loaded += 1
+                }
+                // files_loaded += 1
+                reader.onerror = function () {
+                  console.error(reader.error);
+                  // files_loaded += 1
+                };
+              }
+
+            };
+
+            // END
+          }
+
+          processIndividualFile(
+            file, remote_file, function (comment) {
+              //console.log(comment)
+            }
+          )
+        }
+
+        // console.log('.,,.', input.files)
+
+        if (remote_files && remote_files.length > 0) {
+          // Is list of remote URLS (not from local disk)
+          // console.warn("TODO")
+          for (let index = 0; index < remote_files.length; index++) {
+            const element = remote_files[index];
+
+            if (typeof element !== "string") {
+              throw new Error("TODO implement complex list of data to load here");
+              // @TODO deal with fallbacks
+
+            }
+            let _url = element
+
+            let pseudo_file = {
+              // @see https://stackoverflow.com/questions/511761
+              name: _url.split('#')[0].split('?')[0].split('/').pop(),
+              url: _url,
+              size: -1,
+              _content: null,
+              _response: null,
+              _remote: true
+            }
+
+            // @TODO maybe depending of the extension pass not the string
+            //       but let the papaparse or geojsonl deal with ajax call
+
+            try {
+              const response = await fetch(_url);
+              if (!response.ok) {
+                throw new Error(`Response status: ${response.status}`);
+              }
+
+              // const _rext = await response.text();
+              // console.log(_rext);
+              pseudo_file._response = response
+              // pseudo_file._content = await response.text();
+              //pseudo_file._content = response.text();
+            } catch (error) {
+              console.error(error.message);
+            }
+
+            if (pseudo_file.name.endsWith(".yaml") || pseudo_file.name.endsWith(".yml")) {
+              // skip configuration files
+              // files_loaded += 1
+            } else {
+              await readFileMainLoop(null, pseudo_file)
+              files_loaded += 1
+
+              // if (!pseudo_file.name.endsWith(".csv") && !pseudo_file.name.endsWith(".tsv")) {
+              //   // CSV/TSV have its own counter
+              //   files_loaded += 1
+              // }
+            }
+
+          }
+
+
+        } else if (input !== false) {
+          // Is list of files on local disk
+          // console.log('Is list of files on local disk', input)
+
+          for (let index = 0; index < input.files.length; index++) {
+            const element = input.files[index];
+
+            // console.log('_-', element.name)
+
+            if (element.name.endsWith(".yaml") || element.name.endsWith(".yml")) {
+              // skip configuration files
+              console.log('skiped', element.name)
+              files_loaded += 1
+            } else {
+
+              // console.log('processing...', element.name)
+              await readFileMainLoop(element)
+              files_loaded += 1
+            }
+          }
+        } else {
+          throw new Error("Bad logic");
+        }
+
+        let last_count = SDMData.Main.length
+
+        let existCondition = setInterval(function () {
+          let _totalfiles = -1
+          if (input.files) {
+            // This will fail if have any YAML
+            _totalfiles = input.files.length
+
+            for (let index = 0; index < input.files.length; index++) {
+              const element = input.files[index];
+              if (element.name.endsWith(".yaml", '.yml')) {
+                _totalfiles = _totalfiles - 1
+              }
+            }
+
+            // input.files.forEach(element => {
+
+            // });
+          } else {
+            _totalfiles = remote_files.length
+
+            // console.log('remote_files.lengthremote_files.length', remote_files)
+          }
+
+          // console.log('SDMData.Main.length', SDMData.Main.length)
+
+          // console.log('>>>>>>>> existCondition <<<<<<<<')
+          if (files_csv_finished !== files_csv_total) {
+            console.log('files_csv_finished !== files_csv_total. Waiting...')
+
+            // } else if (input.files.length == files_loaded && last_count == SDMData.Main.length) {
+            // } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length) {
+          } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length || SDMData._SourceFilesAll.length === SDMData._SourceFilesFinished.length) {
+            // console.log("input.files.length == files_loaded");
+            clearInterval(existCondition);
+
+            UIb.data_ex_count_t.textContent = (new Intl.NumberFormat(_Etc.locale_number).format(_data_ex_count_t))
+            UIb.data_ex_count_i.textContent = (new Intl.NumberFormat(_Etc.locale_number).format(_data_ex_count_i))
+
+            if (_data_ex_count_i <= SDMConf.Preview.text) {
+              UIb.data_active_count.textContent = new Intl.NumberFormat(_Etc.locale_number).format(_data_ex_count_i)
+            } else {
+              UIb.data_active_count.textContent = (new Intl.NumberFormat(_Etc.locale_number).format(SDMConf.Preview.text)) + ' (' + (new Intl.NumberFormat(_Etc.locale_number).format(_data_ex_count_i)) + ')'
+            }
+            // output.textContent = output_printer(SDMData.Main)
+
+
+            SDMData.MainPreview = SDMData.Main.slice(0, SDMConf.Preview.map)
+            //console.log('....SDMData.MainPreview', SDMData.Main, SDMData.MainPreview, SDMConf.Preview.map)
+            // console.log('WorkingInputFiles', WorkingInputFiles)
+
+            UI.ui_datasets_list(_Etc.WorkingInputFiles)
+
+            UI.update_filter_delayed()
+
+            // Disable the file input (user will need to re-load if needs to change)
+            document.querySelector("#external-data-file").disabled = true
+            document.querySelector("#data_ex_fields_exporter").disabled = true
+            document.querySelector("#data_ex_filter").disabled = true
+            document.querySelector("#import_reffile").disabled = true
+            document.querySelector("#import_reffile_dist").disabled = true
+            document.querySelector("#import_reffile_rules").disabled = true
+            // update_map()
+
+            // Hide extra column, since it will have no data to show
+            if (SDMData.Auxiliary.length === 0) {
+              document.querySelector("#ui_text_nopos_preview").checked = false
+              //update_map()
+              UI.update_ui()
+            }
+
+            //const t1 = profile_times[file.name]
+            //const t2 = new Date()
+            const diff_read_all = Helper.humanDiff(_Etc._readfile_start_time, new Date())
+            console.log(`readFile (all files + processing) end: took: ${diff_read_all}`)
+
+          } else {
+            console.log('waiting input.files.length == files_loaded and last_count vs SDMData.Main.length stabilize', _totalfiles, files_csv_finished, files_loaded, last_count, SDMData.Main.length)
+          }
+
+          last_count = SDMData.Main.length
+        }, 500); // check every 500ms
+
+      } // function readFile(input) {
+
+
+      /**
+       * Caller to trigger file processing.
+       * If false, assume was initialized by URL parametyers
+       * If is reference, but one of the items is YAML, process the YAML first
+       * Other cases: run as usual
+       **/
+      static readFilesOrParameters(input_or_false) {
+
+        let remote_files = []
+
+        if (input_or_false === false) {
+          // console.log('todo')
+
+          if ("data" in SDMConf.FromURIParameters && SDMConf.FromURIParameters.data.length > 0) {
+            // console.log("SDMConf.FromURIParameters.data", SDMConf.FromURIParameters.data)
+            remote_files = SDMConf.FromURIParameters.data
+            // SDMConf._.add_config_remote
+
+            // console.error('SDMConf.FromURIParameters', SDMConf.FromURIParameters)
+
+            // SDMData._SourceFilesAll = 
+
+            SDMConf.FromURIParameters.data.forEach(item => SDMData._SourceFilesAll.add(item))
+          } else if ("conf" in SDMConf.FromURIParameters && SDMConf.FromURIParameters.conf.length > 0) {
+            // Nothing here
+          } else {
+            throw new Error("Bad initialization, Neither is file upload or conf[]/data[] by URL parameters");
+          }
+
+        } else {
+
+          Array.from(input_or_false.files).forEach(function (file) {
+            if (file.name.endsWith(".yaml") || file.name.endsWith(".yml")) {
+              // console.warn("TODO process YAML file first")
+
+              const uid_promisse = file.name
+              SDMConf._.add_config(false, uid_promisse)
+              let reader = new FileReader();
+              reader.readAsText(file);
+              reader.onload = function () {
+
+                SDMConf._.name = file.name.split(".").shift()
+                SDMConf._.add_config(Configuration.object_from_yaml(reader.result), uid_promisse)
+
+                //SDMConf._ = new Configuration(
+                //  file.name.split(".").shift(), Configuration.object_from_yaml(reader.result))
+                // console.warn("SDMConf._", SDMConf._)
+              }
+            } else {
+              //Anything not a configuration file is assumed to be data file
+              SDMConf._.add_data_file(file, true)
+
+              // console.log('instanceof File', file instanceof File)
+              SDMData._SourceFilesAll.add("file://" + file.name)
+            }
+          })
+        }
+
+        // console.log('SDMConf._.ready(console.log)')
+        // SDMConf._.ready(console.log)
+
+        SDMConf._.ready(function () {
+
+          // SDMData._SourceFilesAll = SDMConf.FromURIParameters.data
+
+          // SDMData._SourceFilesAll.add
+
+
+          // console.log('SDMConf._.ready SDMConf._.remote_data', SDMConf._.remote_data)
+          if (!!SDMConf._.remote_data) {
+            SDMConf._.remote_data.forEach(function (item) {
+              SDMData._SourceFilesAll.add(item)
+            })
+
+            Loader.readFile(input_or_false, SDMConf._.remote_data)
+          } else {
+            if (input_or_false === false && remote_files.length === 0) {
+              UI.reportErrorCritical("No datasets to process", "Even if you loaded configurations, no dataset found on configurations/upload/URL parameters. Please restart.")
+            }
+            Loader.readFile(input_or_false, remote_files)
+          }
+        })
+
+      }
+
+      static readFileReference(input) {
+        const import_reffile_dist = parseInt(document.querySelector("#import_reffile_dist").value)
+        const import_reffile_dist2 = parseInt(document.querySelector("#import_reffile_dist2").value)
+        const import_reffile_rules = MatchingPrompt.parse_options_simple(document.querySelector("#import_reffile_rules").value, false)
+        const import_reffile_rules_missing = Boolean(document.querySelector("#import_reffile_rules_missing").checked)
+        console.log(input, import_reffile_dist, import_reffile_rules)
+
+        SDMConf.Reference = {
+          "distance": import_reffile_dist,
+          "distance2": import_reffile_dist2,
+          "rules": import_reffile_rules,
+          "allow_missing_ref": import_reffile_rules_missing
+        }
+
+        if (import_reffile_rules && import_reffile_rules.length > 0) {
+          SDMData.ReferenceStats.ref_items_no_tags = new Array(import_reffile_rules.length).fill(0);
+          SDMData.ReferenceStats.ref_items_no_tags = new Array(import_reffile_rules.length).fill(0);
+        }
+
+        var filesref_loaded = 0
+        // SDMData.Reference
+        Array.from(input.files).forEach(function (file) {
+
+          if (file.name.endsWith(".geojsonl")) {
+            console.warn("Note: geojsonl not implented for reference files")
+          }
+
+          function processIndividualRefFile(
+            file
+          ) {
+            let reader = new FileReader();
+            reader.readAsText(file);
+            var input_file_index = filesref_loaded + 1
+
+            reader.onload = function () {
+              // console.log('loaded this', this)
+
+              let original_data = JSON.parse(reader.result)
+
+              original_data['features'].forEach(function (item, index) {
+                if ("__did" in item) {
+                  delete item["__did"]
+                }
+                if ("__fid" in item) {
+                  delete item["__fid"]
+                }
+                item["__rid"] = input_file_index
+                item["__rfid"] = index + 1
+                SDMData.Reference.push(item)
+              })
+              filesref_loaded += 1
+            }
+            reader.onerror = function () {
+              console.log(reader.error);
+              // files_loaded += 1
+              filesref_loaded += 1
+            };
+          }
+
+          processIndividualRefFile(
+            file
+          )
+          // filesref_loaded += 1
+        })
+
+
+        let existConditionRef = setInterval(function () {
+
+          // console.log('>>>>>>>> existCondition <<<<<<<<')
+          if (input.files.length == filesref_loaded) {
+            // console.log("input.files.length == files_loaded");
+            clearInterval(existConditionRef);
+            // update_map()
+
+            console.log('SDMData.Reference done', SDMData.Reference)
+
+            document.querySelector("#import_reffile").disabled = true
+            document.querySelector("#import_reffile_dist").disabled = true
+            document.querySelector("#import_reffile_dist2").disabled = true
+            document.querySelector("#import_reffile_rules").disabled = true
+
+            SDMData.ReferenceStats.ref_files = filesref_loaded
+            SDMData.ReferenceStats.ref_items = SDMData.Reference.length
+
+            SDMData.Reference.forEach(function (_item, index) {
+              let have_pos = false
+              let have_tags = false
+              let one_lat = 0
+              let one_lon = 0
+              // https://datatracker.ietf.org/doc/html/rfc7946
+              if (_item["geometry"]["coordinates"]) {
+                let gtype = _item["geometry"]["type"]
+                let pos = _item["geometry"]["coordinates"]
+                if (Array.isArray(pos) && !Array.isArray(pos[0]) && pos.length >= 2) {
+                  one_lat = pos[0]
+                  one_lon = pos[1]
+                } else if (Array.isArray(pos) && Array.isArray(pos[0]) && pos[0].length >= 2) {
+                  one_lat = pos[0][0]
+                  one_lon = pos[0][1]
+                } else if (Array.isArray(pos) && Array.isArray(pos[0]) && Array.isArray(pos[0][0]) && pos[0][0].length >= 2) {
+                  one_lat = pos[0][0][0]
+                  one_lon = pos[0][0][1]
+                }
+                if (!!one_lat && !!one_lon) {
+                  have_pos = true
+                }
+              }
+
+              if (SDMConf.Reference.rules && SDMConf.Reference.rules.length) {
+                let tags = []
+                if (_item.hasOwnProperty("properties")) {
+                  tags = Object.keys(_item["properties"])
+                }
+
+                SDMConf.Reference.rules.forEach(function (_rule, index) {
+                  // if (!(tags.indexOf(_item) > -1)) {
+                  let at_least_one_match = false
+                  tags.forEach(function (prop_key) {
+                    if (prop_key === _rule) {
+                      at_least_one_match = true
+                    }
+                  })
+                  if (!at_least_one_match) {
+                    SDMData.ReferenceStats.ref_items_no_tags[index] += 1
+                  }
+
+                })
+              }
+
+              if (!have_pos) {
+                SDMData.ReferenceStats.ref_items_no_pos += 1
+              }
+            })
+
+            // https://stackoverflow.com/a/12075970/894546
+            // Object.defineProperty(RegExp.prototype, "toJSON", {
+            //   value: RegExp.prototype.toString
+            // });
+            document.querySelector("#import_reffile_output").innerHTML = JSON.stringify(
+              { "statistics": SDMData.ReferenceStats, "options": SDMConf.Reference }, null, 4
+            )
+
+          } else {
+            console.log('waiting input.files.length == filesref_loaded', input.files.length, filesref_loaded)
+          }
+        }, 250); // check every 250ms
+
       }
 
     }
@@ -1637,7 +2467,7 @@ phone
 
         // console.log(item_latlon, ref_latlon)
 
-        const dist_in_km = haversineDistance(item_latlon, ref_latlon)
+        const dist_in_km = Geo.haversineDistance(item_latlon, ref_latlon)
 
         // console.log('filter_by_dist', dist_in_km, dist_in_m, dist_in_km <= (dist_in_m / 1000))
 
@@ -1808,7 +2638,7 @@ phone
             continue
           }
 
-          _dist_km = haversineDistance(item_pos, ref_pos)
+          _dist_km = Geo.haversineDistance(item_pos, ref_pos)
           // ref_vs_item_dist = _dist_km / 1000
           ref_vs_item_dist = _dist_km * 1000
           if (ref_vs_item_dist <= SDMConf.Reference.distance) {
@@ -2065,6 +2895,27 @@ phone
         return encodeURIComponent(result.join("|"))
       }
 
+      /**
+       * Use to show a popup modal. Intended only for very critical errors,
+       * the type that would require reload the page and/or change
+       * configurations.
+       * 
+       **/
+      static reportErrorCritical(title, description) {
+        let title_msg = "Critical: " + title
+
+        console.error("reportErrorCritical", title, description)
+
+        document.getElementById("criticalErrorModalLabel").innerText = title_msg
+        // document.getElementById("critical_error_desc").innerText = description
+        document.getElementById("critical_error_desc").innerHTML = description
+
+        let modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('criticalErrorModal'))
+        modal.show();
+        // modal.hide();
+
+      }
+
       static onEachFeatureJOSMClick(ev) {
         ev.stopPropagation();
         ev.preventDefault();
@@ -2163,7 +3014,6 @@ phone
         //     layer.bindPopup(feature.properties.popupContent);
         // }
       }
-
 
       static output_printer(collection, _param1, _param2) {
         // let _maximum_displayed = 1000
@@ -2310,6 +3160,39 @@ phone
         // console.log("TODO exportFile", filename, filesuffix, filetype)
 
         UI.saveGeoJSONofMemory(filename, filesuffix)
+      }
+
+
+      static ui_clean(event) {
+        // console.log(event)
+        //console.log(event.target.id)
+        if (event.target.id === "v_meta") {
+          console.log('ui_clean toggle: show/hide bars, title of app, etc')
+          if (event.target.checked) {
+            document.querySelectorAll('.v_meta-element').forEach(x => x.classList.remove('d-none'))
+          } else {
+            document.querySelectorAll('.v_meta-element').forEach(x => x.classList.add('d-none'))
+          }
+        }
+        if (event.target.id === "v_filter_up") {
+          console.log('ui_clean toggle: show/hide filters/selectors at the top')
+          if (event.target.checked) {
+            document.querySelectorAll('.v_filter_up-element').forEach(x => x.classList.remove('d-none'))
+          } else {
+            document.querySelectorAll('.v_filter_up-element').forEach(x => x.classList.add('d-none'))
+          }
+        }
+        if (event.target.id === "v_filter_bottom") {
+          console.log('ui_clean toggle: show/hide filters/selectors at bottom')
+          if (event.target.checked) {
+            document.querySelectorAll('.v_filter_bottom-element').forEach(x => x.classList.remove('d-none'))
+          } else {
+            document.querySelectorAll('.v_filter_bottom-element').forEach(x => x.classList.add('d-none'))
+          }
+        }
+        if (event.target.id === "v_map_autofocus") {
+          console.log('ui_clean toggle: enable/disable map autofocus when filters change')
+        }
       }
 
       static ui_datasets_list(working_files) {
@@ -2472,7 +3355,7 @@ phone
           // console.log('ui_init_urlparameters', simple_conf)
           SDMConf.FromURIParameters = simple_conf
           if (trigger_init) {
-            readFilesOrParameters(false)
+            Loader.readFilesOrParameters(false)
           }
         }
 
@@ -2561,7 +3444,7 @@ phone
       static update_filter_delayed() {
         _Etc.debounceAttemptedCount += 1
         // console.log('update_filter_delayed', debounceAttemptedCount, (new Date()))
-        debounce(UI.update_filter_imediate, 100)
+        Helper.debounce(UI.update_filter_imediate, 100)
       }
 
       static update_filter_delayed_opt(text) {
@@ -2802,988 +3685,155 @@ phone
 
     }
 
-    /**
-     * Caller to trigger file processing.
-     * If false, assume was initialized by URL parametyers
-     * If is reference, but one of the items is YAML, process the YAML first
-     * Other cases: run as usual
-     **/
-    function readFilesOrParameters(input_or_false) {
-
-      let remote_files = []
-
-      if (input_or_false === false) {
-        // console.log('todo')
-
-        if ("data" in SDMConf.FromURIParameters && SDMConf.FromURIParameters.data.length > 0) {
-          // console.log("SDMConf.FromURIParameters.data", SDMConf.FromURIParameters.data)
-          remote_files = SDMConf.FromURIParameters.data
-          // SDMConf._.add_config_remote
-
-          // console.error('SDMConf.FromURIParameters', SDMConf.FromURIParameters)
-
-          // SDMData._SourceFilesAll = 
-
-          SDMConf.FromURIParameters.data.forEach(item => SDMData._SourceFilesAll.add(item))
-        } else if ("conf" in SDMConf.FromURIParameters && SDMConf.FromURIParameters.conf.length > 0) {
-          // Nothing here
-        } else {
-          throw new Error("Bad initialization, Neither is file upload or conf[]/data[] by URL parameters");
-        }
-
-      } else {
-
-        Array.from(input_or_false.files).forEach(function (file) {
-          if (file.name.endsWith(".yaml") || file.name.endsWith(".yml")) {
-            // console.warn("TODO process YAML file first")
-
-            const uid_promisse = file.name
-            SDMConf._.add_config(false, uid_promisse)
-            let reader = new FileReader();
-            reader.readAsText(file);
-            reader.onload = function () {
-
-              SDMConf._.name = file.name.split(".").shift()
-              SDMConf._.add_config(Configuration.object_from_yaml(reader.result), uid_promisse)
-
-              //SDMConf._ = new Configuration(
-              //  file.name.split(".").shift(), Configuration.object_from_yaml(reader.result))
-              // console.warn("SDMConf._", SDMConf._)
-            }
-          } else {
-            //Anything not a configuration file is assumed to be data file
-            SDMConf._.add_data_file(file, true)
-
-            // console.log('instanceof File', file instanceof File)
-            SDMData._SourceFilesAll.add("file://" + file.name)
-          }
-        })
-      }
-
-      // console.log('SDMConf._.ready(console.log)')
-      // SDMConf._.ready(console.log)
-
-      SDMConf._.ready(function () {
-
-        // SDMData._SourceFilesAll = SDMConf.FromURIParameters.data
-
-        // SDMData._SourceFilesAll.add
-
-
-        // console.log('SDMConf._.ready SDMConf._.remote_data', SDMConf._.remote_data)
-        if (!!SDMConf._.remote_data) {
-          SDMConf._.remote_data.forEach(function (item) {
-            SDMData._SourceFilesAll.add(item)
-          })
-
-          readFile(input_or_false, SDMConf._.remote_data)
-        } else {
-          if (input_or_false === false && remote_files.length === 0) {
-            reportErrorCritical("No datasets to process", "Even if you loaded configurations, no dataset found on configurations/upload/URL parameters. Please restart.")
-          }
-          readFile(input_or_false, remote_files)
-        }
-      })
-
-    }
-
-    /**
-     * readFile. Accept either the input element (the one user select files from disk)
-     * or a list of remote files to load.
-     * 
-     * Ideally this should be refactored, but is working for now.
-     * 
-     **/
-    async function readFile(input, remote_files) {
-      // if (input.files.length > 1) {
-      //   console.warn('No momento implementado apenas primiro arquivo. Ignorando demais')
-      // }
-      // let _data_ex_count_i = 0
-      var _data_ex_count_i = 0
-      // let _data_ex_count_t = 0
-      var _data_ex_count_t = 0
-      let filter_options = MatchingPrompt.parse_options(UIb.data_ex_filter.value)
-      let fields_to_export = MatchingPrompt.parse_options_simple(UIb.data_ex_fields_exporter.value)
-      const import_fields_anyifosm_nwr = document.getElementById("import_fields_anyifosm_nwr").checked
-      var examples = []
-      // let files_loaded = 0
-      var files_loaded = 0
-      let files_csv_total = 0
-      let files_csv_finished = 0
-      // let reader = null
-      // input.files.forEach(function (file) {
-
-      let stack_left = []
-      // const start_time = new Date()
-      _Etc._readfile_start_time = new Date()
-
-      // Array.from(input.files).forEach(function (file) {
-      //   stack_left.push(file)
-      // })
-
-      // Array.from(input.files).forEach(function (file) {
-      function readFileMainLoop(file, remote_file) {
-
-        _Etc.WorkingInputFiles.push(file || remote_file)
-
-        //START
-        async function processIndividualFile(
-          file, remote_file, cb
-        ) {
-
-          let is_file_upload = true
-          let data_file_uid = ""
-
-
-          if (!file) {
-            // merely to mimic file.name
-            file = remote_file
-          }
-
-          if (!file.name.endsWith(".yml") && !file.name.endsWith(".yaml")) {
-            // console.log(')))000000file', file)
-            // console.log(')))000000file', typeof file)
-            // if (file instanceof File) {
-            // if (input && input.files) {
-            // if (!file.name.startsWith("http")) {
-            // if (!file.name.startsWith("http")) {
-            if (!file.url) {
-              data_file_uid = "file://" + file.name
-            } else {
-              data_file_uid = file.url
-            }
-            SDMData._SourceFilesStarted.add(data_file_uid)
-          }
-
-          if (file.name.endsWith(".yml") || file.name.endsWith(".yaml")) {
-            // skip. already done earlier
-
-          } else if (file.name.endsWith(".geojsonl")) {
-            // console.log("Note: geojsonl still imperfect implementation")
-
-            let _last_part = ''
-            let _separator = null
-            let _current_parts = []
-            let _active_part = ''
-            let _skipped_chunks_parts = 0
-
-            let input_file_index = files_loaded + 1
-
-            let profile_times = {
-
-            }
-
-            // @TODO this part of remote stream for geojsonl needs be tested
-            // _streamfile = file || remote_file._response
-            // _streamfile = file || fetch(remote_file)
-            let _streamfile = file
-            //let _download = null
-
-            //console.log('..lk.', file, remote_file)
-
-            if (remote_file && remote_file.url) {
-
-              // @TODO implement loading .geojsonl from remote sources (fititnt - 2024-08-08 22:37 BRT)
-              console.warn("IMPORTANT: reading .geojsonl not fully implemented for remote sources (uploading from local disk should still be working)")
-              // @see https://developer.mozilla.org/en-US/docs/Web/API/Streams_API/Using_readable_streams
-              // @see https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-              _streamfile = remote_file._response
-              _streamfile = fetch(remote_file.url).then(
-                response => { return response.body.getReader() }
-              )
-              //_streamfile = remote_file.response
-              // _file = remote_file.url
-              //_download = true
-            }
-
-            //file
-            _streamfile
-              .stream()
-              .pipeThrough(new TextDecoderStream())
-              .pipeTo(new WritableStream({
-                start(controller) {
-                  profile_times[file.name] = new Date()
-                  console.log(`WritableStream start: ${file.name}`)
-                  // if (console.profile) {
-                  //   console.profile(`WritableStream${file.name}`)
-                  // }
-                },
-                write(textChunk) {
-                  let _active_stack = []
-                  let _geojson_string = ''
-
-                  // RS + LF
-                  // https://www.rfc-editor.org/rfc/rfc8142
-                  if (textChunk.includes(String.fromCharCode(30, 10))) {
-                    _current_parts = textChunk.split(String.fromCharCode(30, 10))
-                  } else {
-                    _current_parts = [textChunk]
-                  }
-
-                  _current_parts = _current_parts.filter(Boolean)
-
-                  while (_current_parts.length != 0) {
-                    if (_last_part != '') {
-                      _active_part = _last_part + _current_parts.shift()
-                      _last_part = []
-                    } else {
-                      _active_part = _last_part + _current_parts.shift().trim("\n")
-                    }
-                    _active_stack.push(_active_part)
-                  }
-
-                  while (_active_stack.length != 0) {
-                    _geojson_string = _active_stack.shift()
-                    _geojson_object = null
-                    try {
-                      _geojson_object = JSON.parse(_geojson_string);
-
-                      // Try to clean last as soon as theres a clean match
-                      _last_part = ''
-                    } catch (e) {
-                      // At end of chunk part is expected to sometimes have partial
-                      if (_active_stack.length === 0) {
-                        _active_part = _last_part + _geojson_string
-                      } else {
-                        _skipped_chunks_parts += 1
-                        // console.error(`fileReader ${file} error in the middle of chunks`, e, _geojson_string)
-                      }
-                    }
-
-                    if (_geojson_object !== null) {
-                      _data_ex_count_t += 1
-
-                      if (!(filter_options === null || Matcher.filter(_geojson_object, filter_options))) {
-                        continue
-                      }
-
-                      if (SDMData.Reference.length !== 0) {
-                        match_score = Matcher.filter_by_reference_on_import(_geojson_object, SDMConf.Reference)
-                        // console.log('__match_score', match_score, item3, SDMConf.Reference)
-                        if (match_score < 50) {
-                          continue
-                        }
-                      }
-                      _data_ex_count_i += 1
-                      SDMData.Main.push(Matcher.select_attributes(_geojson_object, fields_to_export, input_file_index, _data_ex_count_i, import_fields_anyifosm_nwr))
-
-                    }
-                  }
-
-                },
-                close(controller) {
-                  const t1 = profile_times[file.name]
-                  const t2 = new Date()
-                  const diff = humanDiff(t1, t2)
-                  console.log(`WritableStream end: ${file.name} took: ${diff}`)
-                  // if (console.profile) {
-                  //   console.profileEnd(`WritableStream${file.name}`)
-                  // }
-
-                  return new Promise((resolve, reject) => {
-                    cb(`Loaded ${file.name}`)
-                    SDMData._SourceFilesFinished.add(data_file_uid)
-                    resolve()
-                  })
-                },
-                // }, queuingStrategy))
-              }))
-
-            // @TODO check if here will work the fileloaded
-            // files_loaded += 1
-
-          } else if (file.name.endsWith(".csv") || file.name.endsWith(".tsv")) {
-            // console.log("@TODO", file)
-            var input_file_index = files_loaded + 1
-
-            let _papa_initialize = false
-            let _papa_to_geojson = false
-            let _papa_latlon = []
-            let _papa_wkt = false
-            let _papa_wkt_field = ''
-
-            files_csv_total += 1
-
-            let _file = file
-            let _download = null
-            if (remote_file && remote_file.url) {
-              _file = remote_file.url
-              _download = true
-            }
-
-            // console.log('########papaparse', _file, remote_file)
-
-            // Papa.parse(bigFile, {
-            // Papa.parse(file, {
-            Papa.parse(_file, {
-              worker: false,
-              download: _download,
-              header: true,
-              step: function (row) {
-                // console.log("Row:", row.data);
-                _data_ex_count_i += 1
-
-                // tabular input more likely to need this
-                row.data = MatchingPrompt._import_keys_renamer(row.data)
-                row.data = MatchingPrompt._import_values_processor(row.data)
-
-                if (_papa_initialize === false) {
-                  _papa_initialize = true
-                  _papa_latlon = Geo.get_field_latnon_if_exist(Object.keys(row.data))
-                  _papa_wkt = Geo.get_field_wkt_if_exist(row.data)
-                  // console.log('---', _papa_latlon, _papa_wkt, Object.keys(row.data))
-                  if (_papa_latlon !== false || _papa_wkt !== false) {
-                    _papa_to_geojson = true
-                  }
-                }
-
-                let _lat = 0.0
-                let _lon = 0.0
-                let _latlon = []
-                if (_papa_to_geojson) {
-                  if (_papa_latlon !== false) {
-                    _lat = parseFloat(row.data[_papa_latlon[0]])
-                    _lon = parseFloat(row.data[_papa_latlon[1]])
-                  } else {
-                    _latlon = Geo.get_field_latnon_if_wkt_exist(row.data)
-                    // console.log('..._latlon', _latlon, row.data)
-                    if (_latlon !== false) {
-                      // swaped?
-                      _lat = parseFloat(_latlon[1])
-                      _lon = parseFloat(_latlon[0])
-                    }
-                  }
-                }
-                if (isNaN(_lat) || isNaN(_lon)) {
-                  _lat = 0.0
-                  _lon = 0.0
-                }
-                // console.log( [_lon, _lat])
-
-                let active_item = Matcher.select_attributes({
-                  // "geometry": {
-                  "geometry": {
-                    "type": "Point",
-                    // "coordinates": [0.0, 0.0]
-                    "coordinates": [_lon, _lat]
-                  },
-                  "properties": row.data,
-                  "type": "Feature"
-                }, fields_to_export, input_file_index, _data_ex_count_i)
-
-                // console.log('Papa.parse start', active_item)
-
-                if (!(filter_options === null || Matcher.filter(active_item, filter_options))) {
-                  return true
-                }
-
-                // console.log('Papa.parse end', active_item)
-
-                if (SDMData.Reference.length !== 0) {
-                  match_score = Matcher.filter_by_reference_on_import(active_item, SDMConf.Reference)
-                  // console.log('__match_score', match_score, item3, SDMConf.Reference)
-                  if (match_score < 50) {
-                    return true
-                  }
-                }
-
-                // const _data_ex_count_t_local = _data_ex_count_t
-                if (_papa_to_geojson) {
-                  SDMData.Main.push(active_item)
-                } else {
-                  SDMData.Auxiliary.push(active_item)
-                }
-
-
-              },
-              complete: function () {
-                console.log("CSV import for file finished", file)
-                // SDMData.AuxiliaryPreview = SDMData.Auxiliary
-                files_csv_finished += 1
-                return new Promise((resolve, reject) => {
-                  cb(`Loaded ${file.name}`)
-                  SDMData._SourceFilesFinished.add(data_file_uid)
-                  resolve()
-                })
-              }
-            });
-          } else {
-
-            var input_file_index = files_loaded + 1
-
-            // Last part: generic json/geojson (either remote or local)
-
-            // console.log('poin')
-
-            function _parser_geojson_text(text) {
-              let original_data = JSON.parse(text)
-
-              for (let index = 0; index < original_data['features'].length; index++) {
-                const item3 = original_data['features'][index];
-                _data_ex_count_t += 1
-
-                if (!(filter_options === null || Matcher.filter(item3, filter_options))) {
-                  continue
-                }
-
-                if (SDMData.Reference.length !== 0) {
-                  match_score = Matcher.filter_by_reference_on_import(item3, SDMConf.Reference)
-                  // console.log('__match_score', match_score, item3, SDMConf.Reference)
-                  if (match_score < 50) {
-                    continue
-                  }
-                }
-
-                _data_ex_count_i += 1
-                SDMData.Main.push(Matcher.select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
-
-                examples.push(original_data['features'][0])
-              }
-            }
-
-            if (!!remote_file) {
-
-              console.log('Remote fetch...', remote_file)
-
-              try {
-                const _text = await remote_file._response.text();
-
-                //console.log('remote start....', _text)
-                if (_text && _text.length > 0) {
-                  _parser_geojson_text(_text)
-                }
-              } catch (error) {
-                console.error(file.name, error, remote_file._response.error);
-              } finally {
-                return new Promise((resolve, reject) => {
-                  cb(`Loaded ${file.name}`)
-                  SDMData._SourceFilesFinished.add(data_file_uid)
-                  resolve()
-                })
-              }
-
-            } else {
-              let reader = new FileReader();
-              reader.readAsText(file);
-              // console.log('files_loaded', files_loaded, )
-              // var input_file_index = files_loaded + 1
-              let match_score = 0
-
-              reader.onload = function () {
-                // console.log('loaded this', this)
-
-                try {
-
-                  // Check for empty file
-                  if (reader.result && reader.result.length > 0) {
-                    _parser_geojson_text(reader.result)
-                  }
-                } catch (error) {
-                  console.error(file.name, error, reader.result)
-                  // Expected output: ReferenceError: nonExistentFunction is not defined
-                  // (Note: the exact output may be browser-dependent)
-                } finally {
-                  return new Promise((resolve, reject) => {
-                    cb(`Loaded ${file.name}`)
-                    SDMData._SourceFilesFinished.add(data_file_uid)
-                    resolve()
-                  })
-                }
-
-                // files_loaded += 1
-              }
-              // files_loaded += 1
-              reader.onerror = function () {
-                console.error(reader.error);
-                // files_loaded += 1
-              };
-            }
-
-          };
-
-          // END
-        }
-
-        processIndividualFile(
-          file, remote_file, function (comment) {
-            //console.log(comment)
-          }
-        )
-      }
-
-      // console.log('.,,.', input.files)
-
-      if (remote_files && remote_files.length > 0) {
-        // Is list of remote URLS (not from local disk)
-        // console.warn("TODO")
-        for (let index = 0; index < remote_files.length; index++) {
-          const element = remote_files[index];
-
-          if (typeof element !== "string") {
-            throw new Error("TODO implement complex list of data to load here");
-            // @TODO deal with fallbacks
-
-          }
-          let _url = element
-
-          let pseudo_file = {
-            // @see https://stackoverflow.com/questions/511761
-            name: _url.split('#')[0].split('?')[0].split('/').pop(),
-            url: _url,
-            size: -1,
-            _content: null,
-            _response: null,
-            _remote: true
-          }
-
-          // @TODO maybe depending of the extension pass not the string
-          //       but let the papaparse or geojsonl deal with ajax call
-
-          try {
-            const response = await fetch(_url);
-            if (!response.ok) {
-              throw new Error(`Response status: ${response.status}`);
-            }
-
-            // const _rext = await response.text();
-            // console.log(_rext);
-            pseudo_file._response = response
-            // pseudo_file._content = await response.text();
-            //pseudo_file._content = response.text();
-          } catch (error) {
-            console.error(error.message);
-          }
-
-          if (pseudo_file.name.endsWith(".yaml") || pseudo_file.name.endsWith(".yml")) {
-            // skip configuration files
-            // files_loaded += 1
-          } else {
-            await readFileMainLoop(null, pseudo_file)
-            files_loaded += 1
-
-            // if (!pseudo_file.name.endsWith(".csv") && !pseudo_file.name.endsWith(".tsv")) {
-            //   // CSV/TSV have its own counter
-            //   files_loaded += 1
-            // }
-          }
-
-        }
-
-
-      } else if (input !== false) {
-        // Is list of files on local disk
-        // console.log('Is list of files on local disk', input)
-
-        for (let index = 0; index < input.files.length; index++) {
-          const element = input.files[index];
-
-          // console.log('_-', element.name)
-
-          if (element.name.endsWith(".yaml") || element.name.endsWith(".yml")) {
-            // skip configuration files
-            console.log('skiped', element.name)
-            files_loaded += 1
-          } else {
-
-            // console.log('processing...', element.name)
-            await readFileMainLoop(element)
-            files_loaded += 1
-          }
-        }
-      } else {
-        throw new Error("Bad logic");
-      }
-
-      let last_count = SDMData.Main.length
-
-      let existCondition = setInterval(function () {
-        let _totalfiles = -1
-        if (input.files) {
-          // This will fail if have any YAML
-          _totalfiles = input.files.length
-
-          for (let index = 0; index < input.files.length; index++) {
-            const element = input.files[index];
-            if (element.name.endsWith(".yaml", '.yml')) {
-              _totalfiles = _totalfiles - 1
-            }
-          }
-
-          // input.files.forEach(element => {
-
-          // });
-        } else {
-          _totalfiles = remote_files.length
-
-          // console.log('remote_files.lengthremote_files.length', remote_files)
-        }
-
-        // console.log('SDMData.Main.length', SDMData.Main.length)
-
-        // console.log('>>>>>>>> existCondition <<<<<<<<')
-        if (files_csv_finished !== files_csv_total) {
-          console.log('files_csv_finished !== files_csv_total. Waiting...')
-
-          // } else if (input.files.length == files_loaded && last_count == SDMData.Main.length) {
-          // } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length) {
-        } else if (_totalfiles == files_loaded && last_count == SDMData.Main.length || SDMData._SourceFilesAll.length === SDMData._SourceFilesFinished.length) {
-          // console.log("input.files.length == files_loaded");
-          clearInterval(existCondition);
-
-          UIb.data_ex_count_t.textContent = (new Intl.NumberFormat(_Etc.locale_number).format(_data_ex_count_t))
-          UIb.data_ex_count_i.textContent = (new Intl.NumberFormat(_Etc.locale_number).format(_data_ex_count_i))
-
-          if (_data_ex_count_i <= SDMConf.Preview.text) {
-            UIb.data_active_count.textContent = new Intl.NumberFormat(_Etc.locale_number).format(_data_ex_count_i)
-          } else {
-            UIb.data_active_count.textContent = (new Intl.NumberFormat(_Etc.locale_number).format(SDMConf.Preview.text)) + ' (' + (new Intl.NumberFormat(_Etc.locale_number).format(_data_ex_count_i)) + ')'
-          }
-          // output.textContent = output_printer(SDMData.Main)
-
-
-          SDMData.MainPreview = SDMData.Main.slice(0, SDMConf.Preview.map)
-          //console.log('....SDMData.MainPreview', SDMData.Main, SDMData.MainPreview, SDMConf.Preview.map)
-          // console.log('WorkingInputFiles', WorkingInputFiles)
-
-          UI.ui_datasets_list(_Etc.WorkingInputFiles)
-
-          UI.update_filter_delayed()
-
-          // Disable the file input (user will need to re-load if needs to change)
-          document.querySelector("#external-data-file").disabled = true
-          document.querySelector("#data_ex_fields_exporter").disabled = true
-          document.querySelector("#data_ex_filter").disabled = true
-          document.querySelector("#import_reffile").disabled = true
-          document.querySelector("#import_reffile_dist").disabled = true
-          document.querySelector("#import_reffile_rules").disabled = true
-          // update_map()
-
-          // Hide extra column, since it will have no data to show
-          if (SDMData.Auxiliary.length === 0) {
-            document.querySelector("#ui_text_nopos_preview").checked = false
-            //update_map()
-            UI.update_ui()
-          }
-
-          //const t1 = profile_times[file.name]
-          //const t2 = new Date()
-          const diff_read_all = humanDiff(_Etc._readfile_start_time, new Date())
-          console.log(`readFile (all files + processing) end: took: ${diff_read_all}`)
-
-        } else {
-          console.log('waiting input.files.length == files_loaded and last_count vs SDMData.Main.length stabilize', _totalfiles, files_csv_finished, files_loaded, last_count, SDMData.Main.length)
-        }
-
-        last_count = SDMData.Main.length
-      }, 500); // check every 500ms
-
-    } // function readFile(input) {
-
-    function readFileReference(input) {
-      const import_reffile_dist = parseInt(document.querySelector("#import_reffile_dist").value)
-      const import_reffile_dist2 = parseInt(document.querySelector("#import_reffile_dist2").value)
-      const import_reffile_rules = MatchingPrompt.parse_options_simple(document.querySelector("#import_reffile_rules").value, false)
-      const import_reffile_rules_missing = Boolean(document.querySelector("#import_reffile_rules_missing").checked)
-      console.log(input, import_reffile_dist, import_reffile_rules)
-
-      SDMConf.Reference = {
-        "distance": import_reffile_dist,
-        "distance2": import_reffile_dist2,
-        "rules": import_reffile_rules,
-        "allow_missing_ref": import_reffile_rules_missing
-      }
-
-      if (import_reffile_rules && import_reffile_rules.length > 0) {
-        SDMData.ReferenceStats.ref_items_no_tags = new Array(import_reffile_rules.length).fill(0);
-        SDMData.ReferenceStats.ref_items_no_tags = new Array(import_reffile_rules.length).fill(0);
-      }
-
-      var filesref_loaded = 0
-      // SDMData.Reference
-      Array.from(input.files).forEach(function (file) {
-
-        if (file.name.endsWith(".geojsonl")) {
-          console.warn("Note: geojsonl not implented for reference files")
-        }
-
-        function processIndividualRefFile(
-          file
-        ) {
-          let reader = new FileReader();
-          reader.readAsText(file);
-          var input_file_index = filesref_loaded + 1
-
-          reader.onload = function () {
-            // console.log('loaded this', this)
-
-            let original_data = JSON.parse(reader.result)
-
-            original_data['features'].forEach(function (item, index) {
-              if ("__did" in item) {
-                delete item["__did"]
-              }
-              if ("__fid" in item) {
-                delete item["__fid"]
-              }
-              item["__rid"] = input_file_index
-              item["__rfid"] = index + 1
-              SDMData.Reference.push(item)
-            })
-            filesref_loaded += 1
-          }
-          reader.onerror = function () {
-            console.log(reader.error);
-            // files_loaded += 1
-            filesref_loaded += 1
-          };
-        }
-
-        processIndividualRefFile(
-          file
-        )
-        // filesref_loaded += 1
-      })
-
-
-      let existConditionRef = setInterval(function () {
-
-        // console.log('>>>>>>>> existCondition <<<<<<<<')
-        if (input.files.length == filesref_loaded) {
-          // console.log("input.files.length == files_loaded");
-          clearInterval(existConditionRef);
-          // update_map()
-
-          console.log('SDMData.Reference done', SDMData.Reference)
-
-          document.querySelector("#import_reffile").disabled = true
-          document.querySelector("#import_reffile_dist").disabled = true
-          document.querySelector("#import_reffile_dist2").disabled = true
-          document.querySelector("#import_reffile_rules").disabled = true
-
-          SDMData.ReferenceStats.ref_files = filesref_loaded
-          SDMData.ReferenceStats.ref_items = SDMData.Reference.length
-
-          SDMData.Reference.forEach(function (_item, index) {
-            let have_pos = false
-            let have_tags = false
-            let one_lat = 0
-            let one_lon = 0
-            // https://datatracker.ietf.org/doc/html/rfc7946
-            if (_item["geometry"]["coordinates"]) {
-              let gtype = _item["geometry"]["type"]
-              let pos = _item["geometry"]["coordinates"]
-              if (Array.isArray(pos) && !Array.isArray(pos[0]) && pos.length >= 2) {
-                one_lat = pos[0]
-                one_lon = pos[1]
-              } else if (Array.isArray(pos) && Array.isArray(pos[0]) && pos[0].length >= 2) {
-                one_lat = pos[0][0]
-                one_lon = pos[0][1]
-              } else if (Array.isArray(pos) && Array.isArray(pos[0]) && Array.isArray(pos[0][0]) && pos[0][0].length >= 2) {
-                one_lat = pos[0][0][0]
-                one_lon = pos[0][0][1]
-              }
-              if (!!one_lat && !!one_lon) {
-                have_pos = true
-              }
-            }
-
-            if (SDMConf.Reference.rules && SDMConf.Reference.rules.length) {
-              let tags = []
-              if (_item.hasOwnProperty("properties")) {
-                tags = Object.keys(_item["properties"])
-              }
-
-              SDMConf.Reference.rules.forEach(function (_rule, index) {
-                // if (!(tags.indexOf(_item) > -1)) {
-                let at_least_one_match = false
-                tags.forEach(function (prop_key) {
-                  if (prop_key === _rule) {
-                    at_least_one_match = true
-                  }
-                })
-                if (!at_least_one_match) {
-                  SDMData.ReferenceStats.ref_items_no_tags[index] += 1
-                }
-
-              })
-            }
-
-            if (!have_pos) {
-              SDMData.ReferenceStats.ref_items_no_pos += 1
-            }
-          })
-
-          // https://stackoverflow.com/a/12075970/894546
-          // Object.defineProperty(RegExp.prototype, "toJSON", {
-          //   value: RegExp.prototype.toString
-          // });
-          document.querySelector("#import_reffile_output").innerHTML = JSON.stringify(
-            { "statistics": SDMData.ReferenceStats, "options": SDMConf.Reference }, null, 4
-          )
-
-        } else {
-          console.log('waiting input.files.length == filesref_loaded', input.files.length, filesref_loaded)
-        }
-      }, 250); // check every 250ms
-
-    }
-
-    //let debounceTimer;
-    const debounce = (callback, time) => {
-      // window.clearTimeout(debounceTimer);
-      window.clearTimeout(_Etc.debounceTimerFilters);
-      // debounceTimer = window.setTimeout(callback, time);
-      _Etc.debounceTimerFilters = window.setTimeout(callback, time);
-    }
-
-
-    UIb.filter_active_simple.addEventListener('keyup', function (ev) {
-      // console.log(ev)
-      UI.update_filter_delayed()
-      // console.log(filter_active_simple.value)
-    })
-
-    const loaderExternal = document.getElementById("uploadInput");
-    const loaderExternalAct = document.getElementById("external-data-btn");
+    // const loaderExternal = document.getElementById("uploadInput");
+    // const loaderExternalAct = document.getElementById("external-data-btn");
     // const map = L.map('map').setView([39.74739, -105], 13);
 
+    // const tiles_osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    //   maxZoom: 19,
+    //   attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    //   // }).addTo(map);
+    // });
 
-    const tiles_osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      // }).addTo(map);
-    });
+    // const tiles_openTopoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    //   maxZoom: 19,
+    //   attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+    // });
 
-    const tiles_openTopoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
-    });
+    // const tiles_bdgex = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+    //   // layers: 'ieders_mi290_portao'
+    //   layers: 'ctmmultiescalas_mercator',
+    //   // attribution: 'https://bdgex.eb.mil.br/',
+    //   attribution: '<a target="_blank" href="https://bdgex.eb.mil.br/">Cartas Topográficas do Exército Brasileiro</a>',
+    //   maxZoom: 20
+    // })
 
-    const tiles_bdgex = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
-      // layers: 'ieders_mi290_portao'
-      layers: 'ctmmultiescalas_mercator',
-      // attribution: 'https://bdgex.eb.mil.br/',
-      attribution: '<a target="_blank" href="https://bdgex.eb.mil.br/">Cartas Topográficas do Exército Brasileiro</a>',
-      maxZoom: 20
-    })
-
-    // @see Bing https://github.com/shramov/leaflet-plugins/blob/master/layer/tile/Bing.js
-    /*
-    // const BingLayer = L.TileLayer.extend({
-    L.BingLayer = L.TileLayer.extend({
-      options: {
-        imagerySet: 'Aerial', // to be changed on next major version!!
-        culture: '',
-        style: '',
-        // https://blogs.bing.com/maps/2015/02/12/high-ppi-maps-now-available-in-the-bing-maps-ajax-control
-        // not documented in REST API docs, but working
-        // warning: deprecated imagery sets may not support some values (depending also on zoom level)
-        retinaDpi: 'd2',
-
-        attribution: 'Bing',
-        minZoom: 1,
-        maxZoom: 21
-        // Actual `maxZoom` value may be less, depending on imagery set / coverage area
-        // - 19~20 for all 'Aerial*'
-        // - 20 for 'Road' (Deprecated)
-      },
-      getTileUrl: function (coords) {
-        var quadkey = this.toQuadKey(coords.x, coords.y, coords.z)
-        var url = L.Util.template(this._url, {
-          q: quadkey,
-          s: this._getSubdomain(coords)
-        })
-        if (typeof this.options.style === 'string') {
-          url += '&st=' + this.options.style
-        }
-        return url
-      },
-      toQuadKey: function (x, y, z) {
-        var index = ''
-        for (var i = z; i > 0; i--) {
-          var b = 0
-          var mask = 1 << (i - 1)
-          if ((x & mask) !== 0) b++
-          if ((y & mask) !== 0) b += 2
-          index += b.toString()
-        }
-        return index
-      },
-      _makeApiUrl: function (restApi, resourcePath, query) {
-        var baseAPIparams = {
-          version: 'v1',
-          restApi: restApi,
-          resourcePath: resourcePath
-        };
-        query = L.extend({
-          // errorDetail: true, // seems no effect
-          key: this.options.key
-        }, query);
-
-        // https://docs.microsoft.com/en-us/bingmaps/rest-services/common-parameters-and-types/base-url-structure
-        var template = 'https://dev.virtualearth.net/REST/{version}/{restApi}/{resourcePath}'; // ?queryParameters&key=BingMapsKey
-        return L.Util.template(template, baseAPIparams) + L.Util.getParamString(query);
-      },
-
-    })
-
-    const tiles_bing = L.BingLayer(L.extend({ imagerySet: "Aerial" }, {
-      key: "AsnE92lUJeuwM3avPQJx46w99V5O9YIoSFm4J8DE4Q8cIO-5oxj9-0QY94RLVg1K",
-      detectRetina: true
-    }));
-    */
-
-
-    const overlay_bdgex_hidrigrafia = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
-      // layers: 'ieders_mi290_portao'
-      layers: 'Multiescala_Hidrografia',
-      format: 'image/png',
-      transparent: true,
-      tiled: true,
-      // srs: 'EPSG:4326',
-      crs: L.CRS.EPSG4326,
-      // attribution: 'https://bdgex.eb.mil.br/',
-      attribution: 'Camada de hidrografia por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
-      // maxNativeZoom: 17,
-      maxNativeZoom: 16,
-      maxZoom: 20
-    })
+    // const overlay_bdgex_hidrigrafia = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+    //   // layers: 'ieders_mi290_portao'
+    //   layers: 'Multiescala_Hidrografia',
+    //   format: 'image/png',
+    //   transparent: true,
+    //   tiled: true,
+    //   // srs: 'EPSG:4326',
+    //   crs: L.CRS.EPSG4326,
+    //   // attribution: 'https://bdgex.eb.mil.br/',
+    //   attribution: 'Camada de hidrografia por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
+    //   // maxNativeZoom: 17,
+    //   maxNativeZoom: 16,
+    //   maxZoom: 20
+    // })
 
     // https://bdgex.eb.mil.br/mapcache?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&FORMAT=image%2Fpng&TRANSPARENT=true&LAYERS=Multiescala_Relevo&TILED=true&WIDTH=256&HEIGHT=256&SRS=EPSG%3A4326&STYLES=&BBOX=-51.34506483742349%2C-29.700926167632637%2C-51.32474623462002%2C-29.680607564829167
-    const overlay_bdgex_relevo = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
-      // layers: 'ieders_mi290_portao'
-      layers: 'Multiescala_Relevo',
-      format: 'image/png',
-      transparent: true,
-      tiled: true,
-      // srs: 'EPSG:4326',
-      crs: L.CRS.EPSG4326,
-      // attribution: 'https://bdgex.eb.mil.br/',
-      attribution: 'Camada de relevo por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
-      // maxNativeZoom: 17,
-      maxNativeZoom: 16,
-      maxZoom: 20
-    })
+    // const overlay_bdgex_relevo = L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+    //   // layers: 'ieders_mi290_portao'
+    //   layers: 'Multiescala_Relevo',
+    //   format: 'image/png',
+    //   transparent: true,
+    //   tiled: true,
+    //   // srs: 'EPSG:4326',
+    //   crs: L.CRS.EPSG4326,
+    //   // attribution: 'https://bdgex.eb.mil.br/',
+    //   attribution: 'Camada de relevo por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
+    //   // maxNativeZoom: 17,
+    //   maxNativeZoom: 16,
+    //   maxZoom: 20
+    // })
+
+
+    let _VarsMap = {
+      // loaderExternal: document.getElementById("uploadInput"),
+      // loaderExternalAct: document.getElementById("external-data-btn"),
+      tiles_osm: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        // }).addTo(map);
+      }),
+      tiles_openTopoMap: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+      }),
+      tiles_bdgex: L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+        // layers: 'ieders_mi290_portao'
+        layers: 'ctmmultiescalas_mercator',
+        // attribution: 'https://bdgex.eb.mil.br/',
+        attribution: '<a target="_blank" href="https://bdgex.eb.mil.br/">Cartas Topográficas do Exército Brasileiro</a>',
+        maxZoom: 20
+      }),
+      overlay_bdgex_hidrigrafia: L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+        // layers: 'ieders_mi290_portao'
+        layers: 'Multiescala_Hidrografia',
+        format: 'image/png',
+        transparent: true,
+        tiled: true,
+        // srs: 'EPSG:4326',
+        crs: L.CRS.EPSG4326,
+        // attribution: 'https://bdgex.eb.mil.br/',
+        attribution: 'Camada de hidrografia por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
+        // maxNativeZoom: 17,
+        maxNativeZoom: 16,
+        maxZoom: 20
+      }),
+      overlay_bdgex_hidrigrafia: L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+        // layers: 'ieders_mi290_portao'
+        layers: 'Multiescala_Hidrografia',
+        format: 'image/png',
+        transparent: true,
+        tiled: true,
+        // srs: 'EPSG:4326',
+        crs: L.CRS.EPSG4326,
+        // attribution: 'https://bdgex.eb.mil.br/',
+        attribution: 'Camada de hidrografia por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
+        // maxNativeZoom: 17,
+        maxNativeZoom: 16,
+        maxZoom: 20
+      }),
+      overlay_bdgex_relevo: L.tileLayer.wms('https://bdgex.eb.mil.br/mapcache?', {
+        // layers: 'ieders_mi290_portao'
+        layers: 'Multiescala_Relevo',
+        format: 'image/png',
+        transparent: true,
+        tiled: true,
+        // srs: 'EPSG:4326',
+        crs: L.CRS.EPSG4326,
+        // attribution: 'https://bdgex.eb.mil.br/',
+        attribution: 'Camada de relevo por <a target="_blank" href="https://bdgex.eb.mil.br/">BDGEx</a>',
+        // maxNativeZoom: 17,
+        maxNativeZoom: 16,
+        maxZoom: 20
+      }),
+      // baseLayers: {
+      //   'OpenStreetMap': _VarsMap.tiles_osm,
+      //   'OpenTopoMap': _VarsMap.tiles_openTopoMap,
+      //   'Cartas Topográficas do Exército Brasileiro': _VarsMap.tiles_bdgex,
+      //   // 'Bing': BingLayer
+      //   // 'Bing': L.BingLayer
+      //   // 'Bing': tiles_bing
+      // },
+      // overlays: {
+      //   'Hidrografia - Exército Brasileiro': overlay_bdgex_hidrigrafia,
+      //   'Relevo - Exército Brasileiro': overlay_bdgex_relevo,
+      // }
+    }
 
     const baseLayers = {
-      'OpenStreetMap': tiles_osm,
-      'OpenTopoMap': tiles_openTopoMap,
-      'Cartas Topográficas do Exército Brasileiro': tiles_bdgex,
+      'OpenStreetMap': _VarsMap.tiles_osm,
+      'OpenTopoMap': _VarsMap.tiles_openTopoMap,
+      'Cartas Topográficas do Exército Brasileiro': _VarsMap.tiles_bdgex,
       // 'Bing': BingLayer
       // 'Bing': L.BingLayer
       // 'Bing': tiles_bing
     };
 
     const overlays = {
-      'Hidrografia - Exército Brasileiro': overlay_bdgex_hidrigrafia,
-      'Relevo - Exército Brasileiro': overlay_bdgex_relevo,
+      'Hidrografia - Exército Brasileiro': _VarsMap.overlay_bdgex_hidrigrafia,
+      'Relevo - Exército Brasileiro': _VarsMap.overlay_bdgex_relevo,
     };
 
     const map = L.map('map', {
       center: [-14.9362, -51.8455],
       zoom: 4,
       //layers: 
-      layers: [tiles_osm]
+      layers: [_VarsMap.tiles_osm]
     });
 
     const markers = L.markerClusterGroup(
@@ -3793,7 +3843,7 @@ phone
     );
 
     // const layerControl = L.control.layers(baseLayers, overlays).addTo(map);
-    const layerControl = L.control.layers(baseLayers, overlays).addTo(map);
+    const layerControl = L.control.layers(_VarsMap.baseLayers, _VarsMap.overlays).addTo(map);
 
     //const map = L.map('map').setView([-14.936266441326534, -51.845590165709055], 4);
 
@@ -3944,7 +3994,6 @@ phone
        */
 
 
-
       markers.addLayers(geoJsonLayer_cluster);
 
       // console.log('markers', markers)
@@ -3980,39 +4029,6 @@ phone
     }
 
     document.addEventListener("DOMContentLoaded", UI.init_ui)
-
-
-    const ui_clean = function (event) {
-      // console.log(event)
-      //console.log(event.target.id)
-      if (event.target.id === "v_meta") {
-        console.log('ui_clean toggle: show/hide bars, title of app, etc')
-        if (event.target.checked) {
-          document.querySelectorAll('.v_meta-element').forEach(x => x.classList.remove('d-none'))
-        } else {
-          document.querySelectorAll('.v_meta-element').forEach(x => x.classList.add('d-none'))
-        }
-      }
-      if (event.target.id === "v_filter_up") {
-        console.log('ui_clean toggle: show/hide filters/selectors at the top')
-        if (event.target.checked) {
-          document.querySelectorAll('.v_filter_up-element').forEach(x => x.classList.remove('d-none'))
-        } else {
-          document.querySelectorAll('.v_filter_up-element').forEach(x => x.classList.add('d-none'))
-        }
-      }
-      if (event.target.id === "v_filter_bottom") {
-        console.log('ui_clean toggle: show/hide filters/selectors at bottom')
-        if (event.target.checked) {
-          document.querySelectorAll('.v_filter_bottom-element').forEach(x => x.classList.remove('d-none'))
-        } else {
-          document.querySelectorAll('.v_filter_bottom-element').forEach(x => x.classList.add('d-none'))
-        }
-      }
-      if (event.target.id === "v_map_autofocus") {
-        console.log('ui_clean toggle: enable/disable map autofocus when filters change')
-      }
-    }
 
     //document.getElementById("ui_text_preview").addEventListener('change', update_ui)
     document.getElementById("ui_text_nopos_preview").addEventListener('change', UI.update_ui)
