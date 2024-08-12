@@ -1481,7 +1481,7 @@ phone
           regex_str = regex_str.toLowerCase()
           // regex_str = regex_str.replace(/áàâ/)
           regex_str = regex_str.normalize("NFD").replace(/\p{Diacritic}/gu, "")
-          r = regex_str.replace(new RegExp(/[àáâãäå]/g), "a");
+          let r = regex_str.replace(new RegExp(/[àáâãäå]/g), "a");
           r = r.replace(new RegExp(/æ/g), "ae");
           r = r.replace(new RegExp(/ç/g), "c");
           r = r.replace(new RegExp(/[èéêë]/g), "e");
@@ -1498,7 +1498,7 @@ phone
           // regex_str = regex_str.lower()
           // regex_str = regex_str.replace(/áàâ/)
           // regex_str = regex_str.normalize("NFD").replace(/\p{Diacritic}/gu, "")
-          r = regex_str.replace(new RegExp(/^(avenida\s)/), "");
+          let r = regex_str.replace(new RegExp(/^(avenida\s)/), "");
           r = r.replace(new RegExp(/^(av\.\s)/), "");
           r = r.replace(new RegExp(/^(av\s)/), "");
           r = r.replace(new RegExp(/^(travessa\s)/), "");
@@ -1768,54 +1768,6 @@ phone
         return true
       }
 
-      static match_tags(ref_props, item_props, rules, missing_ref = true, missing_target = true) {
-        if (!rules || rules.length === 0) {
-          // return true
-          return 100
-        }
-
-        let success = 0
-        let skip = 0
-        for (let index = 0; index < rules.length; index++) {
-          const rule_key = rules[index];
-
-          if (!(rule_key in ref_props)) {
-            if (missing_ref) {
-              skip += 1
-            }
-            continue
-          }
-          if (!(rule_key in ref_props)) {
-            if (missing_target) {
-              skip += 1
-            }
-            continue
-          }
-          // @TODO implement some normalization for names, addr:postcode, etc
-          // levenshtein.js https://gist.github.com/andrei-m/982927
-          if (ref_props[rule_key] === item_props[rule_key]) {
-            success += 1
-          }
-        }
-
-        if (success === rules.length) {
-          return 100
-        }
-
-        if (success === 0 && skip !== rules.length) {
-          return 0
-        }
-
-        if (success === 0 && skip === rules.length) {
-          return 51
-        }
-
-        // @TODO
-        return 0
-
-      }
-
-
       /**
        * Returns likehood of item match by at least one item from reference dataset
        * 
@@ -1906,6 +1858,144 @@ phone
         }
         // return true
         return score
+      }
+
+      static match_tags(ref_props, item_props, rules, missing_ref = true, missing_target = true) {
+        if (!rules || rules.length === 0) {
+          // return true
+          return 100
+        }
+
+        let success = 0
+        let skip = 0
+        for (let index = 0; index < rules.length; index++) {
+          const rule_key = rules[index];
+
+          if (!(rule_key in ref_props)) {
+            if (missing_ref) {
+              skip += 1
+            }
+            continue
+          }
+          if (!(rule_key in ref_props)) {
+            if (missing_target) {
+              skip += 1
+            }
+            continue
+          }
+          // @TODO implement some normalization for names, addr:postcode, etc
+          // levenshtein.js https://gist.github.com/andrei-m/982927
+          if (ref_props[rule_key] === item_props[rule_key]) {
+            success += 1
+          }
+        }
+
+        if (success === rules.length) {
+          return 100
+        }
+
+        if (success === 0 && skip !== rules.length) {
+          return 0
+        }
+
+        if (success === 0 && skip === rules.length) {
+          return 51
+        }
+
+        // @TODO
+        return 0
+
+      }
+
+
+      static select_attributes(item, exportable_fields, input_file_index, temp_id, import_fields_anyifosm_nwr = true) {
+        // @TODO keyval ; Only select attributes for properties
+        let final = {
+          '__did': input_file_index, // source file sequencial identifier (start from 1)
+          '__fid': temp_id, // temporary unique id, serial, starts from 1
+          'type': item['type'],
+          'geometry': item['geometry'],
+          'properties': {},
+        }
+
+        if ("@id" in item['properties'] && import_fields_anyifosm_nwr &&
+          /^(node\/|way\/|relation\/|note\/)-?\d+/.test(item['properties']["@id"])) {
+          final['properties'] = item["properties"]
+
+        } else if (!exportable_fields) {
+          final['properties'] = item["properties"]
+        } else {
+
+          for (const [key, value] of Object.entries(item['properties'])) {
+
+            // We will always ignore empty strings
+            if (value === "") {
+              continue
+            }
+
+            if (_Etc._is_exportable.indexOf(key) > -1) {
+              final['properties'][key] = value
+            } else if (_Etc._is_not_exportable.indexOf(key) > -1) {
+              // skip
+            } else if (Matcher.key_exportable_or_not(key, exportable_fields)) {
+              final['properties'][key] = value
+            }
+          }
+
+          // exportable_fields.forEach(function (key_regex) {
+          //
+          //})
+        }
+        return final
+      }
+
+      static key_exportable_or_not(untested_key, exportable_fields) {
+        let value_str = untested_key
+        let at_least_one = false
+        if (exportable_fields === null) {
+          _Etc._is_exportable.push(untested_key)
+          return true
+        }
+
+        if (typeof value_str !== 'sring') {
+          value_str = value_str.toString()
+        }
+
+        exportable_fields.forEach(function (regex) {
+          if (value_str.match(regex)) {
+            _Etc._is_exportable.push(untested_key)
+            at_least_one = true
+            return true
+            // break
+          }
+        })
+
+        if (!at_least_one) {
+          _Etc._is_not_exportable.push(untested_key)
+          return false
+        }
+
+        return null
+
+        // for (const [key, regex] of Object.entries(options)) {
+        //   if (!item.hasOwnProperty(key)) {
+        //     return false
+        //   }
+        //   // let _regex = ''
+        //   let value_str = item[key]
+        //   if (typeof value_str !== 'sring') {
+        //     value_str = value_str.toString()
+        //   }
+        //   // if 
+        //   // console.log(item[key])
+        //   if (!value_str.match(regex)) {
+        //     // Maybe tolerage optional matches
+        //     // maches_count += 1
+        //     // maches_count += 1
+        //     return false
+        //   } else {
+        //     maches_count += 1
+        //   }
       }
 
     }
@@ -2074,6 +2164,34 @@ phone
         // }
       }
 
+
+      static output_printer(collection, _param1, _param2) {
+        // let _maximum_displayed = 1000
+        let _maximum_displayed = SDMConf.Preview.text
+        let output = []
+        collection.forEach(function (item) {
+          // console.log('output_printer', item)
+          let __did = item['__did']
+          let __fid = item['__fid']
+          _maximum_displayed -= 1
+          if (_maximum_displayed >= 0) {
+            let item_group = []
+
+            if (item['_comment']) {
+              item_group.push(`// note: [${item['_comment']}]`)
+            }
+
+            item_group.push(`// [@did=${__did}; @fid=${__fid}] ${JSON.stringify(item['geometry'])}`)
+
+            for (const [key, value] of Object.entries(item['properties'])) {
+              item_group.push(`${key}=${value}`)
+            }
+            output.push(item_group.join('\n'))
+          }
+        })
+        return output.join('\n\n')
+      }
+
       static saveGeoJSON(geojson_object, filename) {
         const blob = new Blob([JSON.stringify(geojson_object, null, 2)], {
           type: 'application/geo+json',
@@ -2194,6 +2312,85 @@ phone
         UI.saveGeoJSONofMemory(filename, filesuffix)
       }
 
+      static ui_datasets_list(working_files) {
+        // console.log('ui_datasets_list')
+        const map_dataset_list = document.getElementById('map_dataset_list')
+
+        if (_Etc.enabled_files.indexOf(-1) === 0) {
+          // needs initialization
+          _Etc.enabled_files = []
+          working_files.forEach(function (item, index) {
+            _Etc.enabled_files.push(index + 1)
+          })
+        }
+        _Etc.enabled_files
+        let _html = []
+        _html.push(`<h2 class="visually-hidden">Filtros</h2>`)
+        _html.push(`<div class="row v_filter_bottom-element">`)
+        _html.push(`  <div class="col">`)
+        _html.push(`  <h3 class="h5">Loaded datasets</h3>`)
+        working_files.forEach(function (item, index) {
+          // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
+          _html.push(`<div class="form-check form-switch">
+  <input class="form-check-input" type="checkbox" role="switch" id="check__did${index + 1}" data-did="${index + 1}" checked onchange="UI.ui_datasets_list_event(event)">
+  <label class="form-check-label" for="check__did${index + 1}">
+    <img height="41" width="25" src="${UI.ui_map_pin_images(index + 1)}"/>
+    [${UI.ui_datasets_list_did_itens_count(index + 1)}]
+    ${item["name"]}
+  </label>
+</div>`)
+        })
+
+        _html.push(`  </div>`)
+        _html.push(`  <div class="col">`)
+        _html.push(`    <div class="row">`)
+        _html.push(`      <h3 class="h5">Datasets used to hide others</h3>`)
+        _html.push(`      <select class="form-select" aria-label="Dataset to substract" onchange="UI.ui_datasets_list_event(event)" id="hide_did">
+  <option selected value="-1">- Dataset to substract - </option>`)
+        working_files.forEach(function (item, index) {
+          // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
+          _html.push(`<option value="${index + 1}">${item["name"]}</option>`)
+        })
+        _html.push(`      </select>`)
+        _html.push(`    </div>`)
+        _html.push(`    <div class="row">`)
+        _html.push(`      <div class="col">`)
+        _html.push(`        <div class="input-group mb-3">
+  <span class="input-group-text" id="">Distância (m)</span>
+  <input type="text" class="form-control" placeholder="-1 to disable" id="hide_did_dist" aria-label="Distancia" value="25" onchange="UI.ui_datasets_list_event(event)">
+</div>`)
+        _html.push(`      </div>`)
+        _html.push(`      <div class="col">`)
+        _html.push(`        <div class="input-group mb-3">
+  <span class="input-group-text" id="">Keys</span>
+  <input type="text" class="form-control" placeholder="phone,email,ref:vatin" aria-label="Key" value="phone,email,ref:vatin" id="hide_did_keys"  onchange="UI.ui_datasets_list_event(event)">
+</div>`)
+        _html.push(`        </div>`)
+        _html.push(`      </div>`)
+        _html.push(`    <div>`)
+        _html.push(`      <output id="hide_did_output_log"></output>`)
+        _html.push(`    </div>`)
+        _html.push(`    <div class="row">`)
+        _html.push(`      <h3 class="h5">Dataset foco</h3>`)
+        _html.push(`      <select class="form-select" aria-label="Dataset de foco" onchange="UI.ui_datasets_list_event(event)" id="focus_did">
+  <option selected value="-1">- Dataset de foco - </option>`)
+        working_files.forEach(function (item, index) {
+          // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
+          _html.push(`<option value="${index + 1}">${item["name"]}</option>`)
+        })
+        _html.push(`      </select>`)
+        _html.push(`  </div>`)
+        _html.push(`</div>`)
+        //_html.push(`</div>`)
+
+        //map_dataset_list.innerHTML = "TODO"
+        map_dataset_list.innerHTML = _html.join("\n")
+
+        UI.update_ui_refpos()
+        UI.update_filter_delayed()
+      }
+
+
       static ui_datasets_list_did_itens_count(did) {
         let count = 0
         SDMData.Main.forEach(function (item) {
@@ -2227,7 +2424,7 @@ phone
         //filter_dids = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.did)))
         _Etc.enabled_files = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).map((element => parseInt(element.dataset.did)))
 
-        update_filter_delayed()
+        UI.update_filter_delayed()
         // update_map()
         //if (document.getElementById('ui_map_preview_realtime').checked) {
         //  update_map()
@@ -2357,133 +2554,252 @@ phone
        * (doing this for CSV asyng)
        * 
        **/
-      ui_reload_after_import = () => {
+      static ui_reload_after_import = () => {
 
       }
-    }
 
-
-
-    function _init_exportable_or_not(untested_key, exportable_fields) {
-      let value_str = untested_key
-      let at_least_one = false
-      if (exportable_fields === null) {
-        _Etc._is_exportable.push(untested_key)
-        return true
+      static update_filter_delayed() {
+        _Etc.debounceAttemptedCount += 1
+        // console.log('update_filter_delayed', debounceAttemptedCount, (new Date()))
+        debounce(UI.update_filter_imediate, 100)
       }
 
-      if (typeof value_str !== 'sring') {
-        value_str = value_str.toString()
-      }
-
-      exportable_fields.forEach(function (regex) {
-        if (value_str.match(regex)) {
-          _Etc._is_exportable.push(untested_key)
-          at_least_one = true
-          return true
-          // break
+      static update_filter_delayed_opt(text) {
+        let parsed_general = null
+        let parsed_specific = null
+        if (text.indexOf('=') === -1) {
+          parsed_general = MatchingPrompt.parse_options_simple(text)
+          // console.log('update_filter_delayed_opt simple', text, parsed)
+        } else {
+          parsed_general = MatchingPrompt.parse_options(text)
+          // console.log('update_filter_delayed_opt full', text, parsed)
         }
-      })
-
-      if (!at_least_one) {
-        _Etc._is_not_exportable.push(untested_key)
-        return false
+        parsed_specific = MatchingPrompt.parse_options_specific(text)
+        return [parsed_general, parsed_specific]
       }
 
-      return null
+      static update_filter_imediate() {
 
-      // for (const [key, regex] of Object.entries(options)) {
-      //   if (!item.hasOwnProperty(key)) {
-      //     return false
-      //   }
-      //   // let _regex = ''
-      //   let value_str = item[key]
-      //   if (typeof value_str !== 'sring') {
-      //     value_str = value_str.toString()
-      //   }
-      //   // if 
-      //   // console.log(item[key])
-      //   if (!value_str.match(regex)) {
-      //     // Maybe tolerage optional matches
-      //     // maches_count += 1
-      //     // maches_count += 1
-      //     return false
-      //   } else {
-      //     maches_count += 1
-      //   }
-    }
+        // console.log('update_filter_imediateZ  >>>>', (new Date()))
+        _Etc.debounceRealCount += 1
+        // console.log('update_filter_imediate Calls : ' + debounceRealCount);
 
-    function select_attributes(item, exportable_fields, input_file_index, temp_id, import_fields_anyifosm_nwr = true) {
-      // @TODO keyval ; Only select attributes for properties
-      let final = {
-        '__did': input_file_index, // source file sequencial identifier (start from 1)
-        '__fid': temp_id, // temporary unique id, serial, starts from 1
-        'type': item['type'],
-        'geometry': item['geometry'],
-        'properties': {},
-      }
+        // console.log('update_filter_imediate ___ -2')
 
-      if ("@id" in item['properties'] && import_fields_anyifosm_nwr &&
-        /^(node\/|way\/|relation\/|note\/)-?\d+/.test(item['properties']["@id"])) {
-        final['properties'] = item["properties"]
+        // console.log('update_filter_delayed started')
+        let items_to_display = []
+        // SDMData.MainPreview = []
+        let _data_active_count = 0
+        // let parsed_1 = update_filter_delayed_opt(filter_active_simple.value)
 
-      } else if (!exportable_fields) {
-        final['properties'] = item["properties"]
-      } else {
+        // try {
+        //   const _filter_parts = update_filter_delayed_opt(filter_active_simple.value)
+        // } catch (error) {
+        //   console.error(error)
 
-        for (const [key, value] of Object.entries(item['properties'])) {
+        // }
+        const _filter_parts = UI.update_filter_delayed_opt(UIb.filter_active_simple.value)
 
-          // We will always ignore empty strings
-          if (value === "") {
+        // console.log('update_filter_imediate ___ -1', _filter_parts)
+        // const _filter_parts = update_filter_delayed_opt(filter_active_simple.value)
+
+        const parsed_general = _filter_parts[0]
+        const parsed_specific = _filter_parts[1]
+        // console.log('update_filter_imediate ___ 0')
+        //let dids_list = null
+        // let dids_list = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).forEach((element => console.log(element.dataset.did)))
+        // console.log('compiled regex filter', parsed_1)
+
+        if (_Etc.hide_did >= 0) {
+          // Prefill hide_did_affected with zeroes
+          _Etc.hide_did_affected = new Array(_Etc.WorkingInputFiles.length).fill(0);
+        }
+
+        // console.log('refpoint_distance', refpoint_distance)
+
+        // console.log('update_filter_imediate ___ 1')
+
+        // items_to_display = []
+        SDMData.MainPreview = []
+
+        // **** Data with coordinates ***
+        for (let index = 0; index < SDMData.Main.length; index++) {
+          const item = SDMData.Main[index];
+
+          // Disabled files filter
+          if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
             continue
           }
 
-          if (_Etc._is_exportable.indexOf(key) > -1) {
-            final['properties'][key] = value
-          } else if (_Etc._is_not_exportable.indexOf(key) > -1) {
-            // skip
-          } else if (_init_exportable_or_not(key, exportable_fields)) {
-            final['properties'][key] = value
+          // tagging filter
+          if (!Matcher.filter(item, parsed_general, parsed_specific)) {
+            continue
+          }
+          // // filter by distance
+          if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
+            continue
+          }
+          // // Use a reference dataset to filter elements from another dataset. CPU intensive
+          if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
+            continue
+          }
+
+          _data_active_count += 1
+
+          if (SDMData.MainPreview.length <= SDMConf.Preview.map) {
+            SDMData.MainPreview.push(item)
+          } else if (_Etc.focus_did === item["__did"] && SDMData.MainPreview.length <= (2 * SDMConf.Preview.map)) {
+            // If one dataset is focused, we allow up to 2 times the preview size
+            // this could help when have two very large datasets, so the smaller
+            // one does not keep being removed
+            SDMData.MainPreview.push(item)
+          }
+        }
+        // items_to_display = []
+        SDMData.AuxiliaryPreview = []
+
+        // **** Data with coordinates ***
+        for (let index = 0; index < SDMData.Auxiliary.length; index++) {
+          const item = SDMData.Auxiliary[index];
+
+          // Disabled files filter
+          if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
+            continue
+          }
+
+          // tagging filter
+          if (!Matcher.filter(item, parsed_general, parsed_specific)) {
+            continue
+          }
+          // // filter by distance
+          if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
+            continue
+          }
+          // // Use a reference dataset to filter elements from another dataset. CPU intensive
+          if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
+            continue
+          }
+
+          _data_active_count += 1
+
+          if (SDMData.AuxiliaryPreview.length <= SDMConf.Preview.map) {
+            SDMData.AuxiliaryPreview.push(item)
+          } else if (_Etc.focus_did === item["__did"] && SDMData.AuxiliaryPreview.length <= (2 * SDMConf.Preview.map)) {
+            // If one dataset is focused, we allow up to 2 times the preview size
+            // this could help when have two very large datasets, so the smaller
+            // one does not keep being removed
+            SDMData.AuxiliaryPreview.push(item)
           }
         }
 
-        // exportable_fields.forEach(function (key_regex) {
-        //
-        //})
+        // Data without coordinates
+        // @TODO
+
+        // SDMData.MainPreview = items_to_display
+
+        // console.log('update_filter_imediate ___ 2')
+        // data_ex_count_t.textContent = _data_ex_count_t
+        // data_active_count.textContent = _data_active_count
+        // data_active_count.textContent = new Intl.NumberFormat(locale_number).format(_data_active_count)
+        UIb.data_active_count.textContent = (new Intl.NumberFormat(_Etc.locale_number).format(SDMData.MainPreview.length)) + ' (' + (new Intl.NumberFormat(_Etc.locale_number).format(_data_active_count)) + ')'
+        // output.textContent = output_printer(items_to_display)
+        // output.textContent = output_printer(items_to_display)
+
+        // console.log('SDMData.MainPreview', SDMData.MainPreview)
+        //SDMData.MainPreview = items_to_display.slice(0, SDMConf.Preview.map)
+
+        if (_Etc.hide_did >= 0) {
+          // Prefill hide_did_affected with zeroes
+          document.querySelector("#hide_did_output_log").innerHTML = JSON.stringify(_Etc.hide_did_affected)
+          // hide_did_affected = new Array(WorkingInputFiles.length).fill(0);
+        } else {
+          document.querySelector("#hide_did_output_log").innerHTML = ''
+        }
+
+        if (document.getElementById('ui_text_preview').checked) {
+          UIb.output.value = UI.output_printer(SDMData.MainPreview)
+        }
+
+        if (document.getElementById('ui_text_nopos_preview').checked) {
+          UIb.output2.value = UI.output_printer(SDMData.AuxiliaryPreview)
+        }
+
+        if (document.getElementById('ui_map_preview').checked) {
+          update_map()
+        }
+
+        // SDMData.MainPreview = items_to_display
+
+        // let freeBusLayer = L.geoJSON(SDMData.MainPreview).addTo(map);
+        // output.textContent = output_printer_map(items_to_display)
       }
-      return final
-    }
 
 
-    // @TODO make geojson only for active filter
+      /**
+       * Javascript events that need to respond to changes in the input,
+       * mostly after files are loaded, but user is changing filters
+       **/
+      static update_ui() {
+        // const ui_filter_extras = document.getElementById("ui_filter_extras");
+        // const ui_text_preview = document.getElementById("ui_text_preview");
+        const ui_map_preview = document.getElementById("ui_map_preview");
+        const ui_text_nopos_preview = document.getElementById("ui_text_nopos_preview");
+        // const ui_map_preview_realtime = document.getElementById("ui_map_preview_realtime");
 
-    // 
-
-    function output_printer(collection, _param1, _param2) {
-      // let _maximum_displayed = 1000
-      let _maximum_displayed = SDMConf.Preview.text
-      let output = []
-      collection.forEach(function (item) {
-        // console.log('output_printer', item)
-        let __did = item['__did']
-        let __fid = item['__fid']
-        _maximum_displayed -= 1
-        if (_maximum_displayed >= 0) {
-          let item_group = []
-
-          if (item['_comment']) {
-            item_group.push(`// note: [${item['_comment']}]`)
-          }
-
-          item_group.push(`// [@did=${__did}; @fid=${__fid}] ${JSON.stringify(item['geometry'])}`)
-
-          for (const [key, value] of Object.entries(item['properties'])) {
-            item_group.push(`${key}=${value}`)
-          }
-          output.push(item_group.join('\n'))
+        if (ui_text_nopos_preview.checked) {
+          document.querySelector("#output_items_spatial").classList = "col-xl-4 col-lg-6"
+          document.querySelector("#output_items_nonspatial").classList = "col-xl-4 col-lg-6"
+          document.querySelector("#map-container").classList = "col-xl-4"
+          map.invalidateSize()
+        } else {
+          document.querySelector("#output_items_spatial").classList = "col-xl-4"
+          document.querySelector("#output_items_nonspatial").classList = "d-none"
+          document.querySelector("#map-container").classList = "col-xl-8"
+          map.invalidateSize()
         }
-      })
-      return output.join('\n\n')
+
+      }
+
+      static update_ui_refpos() {
+        const filter_active_latlon = document.getElementById("filter_active_latlon").value;
+        const filter_active_latlon_dist = parseInt(document.getElementById("filter_active_latlon_dist").value);
+
+
+        // @fid=98
+        if (filter_active_latlon.includes("@fid=")) {
+          let _parts = filter_active_latlon.trim().split("@fid=")
+          let _fid = parseInt(_parts[1])
+          // console.log('@fid', filter_active_latlon, _parts)
+
+          SDMData.Main.some(function (item, index) {
+            if (item["__fid"] == _fid) {
+              // Only if is Point, others may not be excatly on center
+              _Etc.refpoint_latlon = item['geometry']['coordinates']
+              return true
+            }
+          })
+
+        } else if (filter_active_latlon.includes("#map=")) {
+          // example https://www.openstreetmap.org/edit#map=18/-30.15178/-51.13461
+          // example parse https://osm.org/edit#map=18/-30.15178/-51.13461
+          let _parts = filter_active_latlon.split("#map=")
+          let _parts2 = _parts[1].split("/") // zoom, lon, lat
+          // On URL, is the opposite order
+          _Etc.refpoint_latlon = [parseFloat(_parts2[2]), parseFloat(_parts2[1])]
+        } else {
+          const _latlon = filter_active_latlon.split(',')
+          if (_latlon.length != 2) {
+            _Etc.refpoint_latlon = null
+          } else {
+            _Etc.refpoint_latlon = [parseFloat(_latlon[0]), parseFloat(_latlon[1])]
+            // refpoint_longitude = _latlon[0]
+            // refpoint_longitude = _latlon[1]
+          }
+        }
+
+        _Etc.refpoint_distance = filter_active_latlon_dist
+      }
+
     }
 
     /**
@@ -2749,7 +3065,7 @@ phone
                         }
                       }
                       _data_ex_count_i += 1
-                      SDMData.Main.push(select_attributes(_geojson_object, fields_to_export, input_file_index, _data_ex_count_i, import_fields_anyifosm_nwr))
+                      SDMData.Main.push(Matcher.select_attributes(_geojson_object, fields_to_export, input_file_index, _data_ex_count_i, import_fields_anyifosm_nwr))
 
                     }
                   }
@@ -2844,7 +3160,7 @@ phone
                 }
                 // console.log( [_lon, _lat])
 
-                let active_item = select_attributes({
+                let active_item = Matcher.select_attributes({
                   // "geometry": {
                   "geometry": {
                     "type": "Point",
@@ -2919,7 +3235,7 @@ phone
                 }
 
                 _data_ex_count_i += 1
-                SDMData.Main.push(select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
+                SDMData.Main.push(Matcher.select_attributes(item3, fields_to_export, input_file_index, _data_ex_count_i))
 
                 examples.push(original_data['features'][0])
               }
@@ -3129,9 +3445,9 @@ phone
           //console.log('....SDMData.MainPreview', SDMData.Main, SDMData.MainPreview, SDMConf.Preview.map)
           // console.log('WorkingInputFiles', WorkingInputFiles)
 
-          ui_datasets_list(_Etc.WorkingInputFiles)
+          UI.ui_datasets_list(_Etc.WorkingInputFiles)
 
-          update_filter_delayed()
+          UI.update_filter_delayed()
 
           // Disable the file input (user will need to re-load if needs to change)
           document.querySelector("#external-data-file").disabled = true
@@ -3146,7 +3462,7 @@ phone
           if (SDMData.Auxiliary.length === 0) {
             document.querySelector("#ui_text_nopos_preview").checked = false
             //update_map()
-            update_ui()
+            UI.update_ui()
           }
 
           //const t1 = profile_times[file.name]
@@ -3312,20 +3628,6 @@ phone
 
     }
 
-    function _update_filter_delayed_opt(text) {
-      let parsed_general = null
-      let parsed_specific = null
-      if (text.indexOf('=') === -1) {
-        parsed_general = MatchingPrompt.parse_options_simple(text)
-        // console.log('_update_filter_delayed_opt simple', text, parsed)
-      } else {
-        parsed_general = MatchingPrompt.parse_options(text)
-        // console.log('_update_filter_delayed_opt full', text, parsed)
-      }
-      parsed_specific = MatchingPrompt.parse_options_specific(text)
-      return [parsed_general, parsed_specific]
-    }
-
     //let debounceTimer;
     const debounce = (callback, time) => {
       // window.clearTimeout(debounceTimer);
@@ -3334,173 +3636,10 @@ phone
       _Etc.debounceTimerFilters = window.setTimeout(callback, time);
     }
 
-    function update_filter_delayed() {
-      _Etc.debounceAttemptedCount += 1
-      // console.log('update_filter_delayed', debounceAttemptedCount, (new Date()))
-      debounce(update_filter_imediate, 100)
-    }
-
-    function update_filter_imediate() {
-
-      // console.log('update_filter_imediateZ  >>>>', (new Date()))
-      _Etc.debounceRealCount += 1
-      // console.log('update_filter_imediate Calls : ' + debounceRealCount);
-
-      // console.log('update_filter_imediate ___ -2')
-
-      // console.log('update_filter_delayed started')
-      let items_to_display = []
-      // SDMData.MainPreview = []
-      let _data_active_count = 0
-      // let parsed_1 = _update_filter_delayed_opt(filter_active_simple.value)
-
-      // try {
-      //   const _filter_parts = _update_filter_delayed_opt(filter_active_simple.value)
-      // } catch (error) {
-      //   console.error(error)
-
-      // }
-      const _filter_parts = _update_filter_delayed_opt(UIb.filter_active_simple.value)
-
-      // console.log('update_filter_imediate ___ -1', _filter_parts)
-      // const _filter_parts = _update_filter_delayed_opt(filter_active_simple.value)
-
-      const parsed_general = _filter_parts[0]
-      const parsed_specific = _filter_parts[1]
-      // console.log('update_filter_imediate ___ 0')
-      //let dids_list = null
-      // let dids_list = Array.from(document.querySelectorAll("#map_dataset_list .form-check-input:checked")).forEach((element => console.log(element.dataset.did)))
-      // console.log('compiled regex filter', parsed_1)
-
-      if (_Etc.hide_did >= 0) {
-        // Prefill hide_did_affected with zeroes
-        _Etc.hide_did_affected = new Array(_Etc.WorkingInputFiles.length).fill(0);
-      }
-
-      // console.log('refpoint_distance', refpoint_distance)
-
-      // console.log('update_filter_imediate ___ 1')
-
-      // items_to_display = []
-      SDMData.MainPreview = []
-
-      // **** Data with coordinates ***
-      for (let index = 0; index < SDMData.Main.length; index++) {
-        const item = SDMData.Main[index];
-
-        // Disabled files filter
-        if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
-          continue
-        }
-
-        // tagging filter
-        if (!Matcher.filter(item, parsed_general, parsed_specific)) {
-          continue
-        }
-        // // filter by distance
-        if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
-          continue
-        }
-        // // Use a reference dataset to filter elements from another dataset. CPU intensive
-        if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
-          continue
-        }
-
-        _data_active_count += 1
-
-        if (SDMData.MainPreview.length <= SDMConf.Preview.map) {
-          SDMData.MainPreview.push(item)
-        } else if (_Etc.focus_did === item["__did"] && SDMData.MainPreview.length <= (2 * SDMConf.Preview.map)) {
-          // If one dataset is focused, we allow up to 2 times the preview size
-          // this could help when have two very large datasets, so the smaller
-          // one does not keep being removed
-          SDMData.MainPreview.push(item)
-        }
-      }
-      // items_to_display = []
-      SDMData.AuxiliaryPreview = []
-
-      // **** Data with coordinates ***
-      for (let index = 0; index < SDMData.Auxiliary.length; index++) {
-        const item = SDMData.Auxiliary[index];
-
-        // Disabled files filter
-        if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
-          continue
-        }
-
-        // tagging filter
-        if (!Matcher.filter(item, parsed_general, parsed_specific)) {
-          continue
-        }
-        // // filter by distance
-        if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
-          continue
-        }
-        // // Use a reference dataset to filter elements from another dataset. CPU intensive
-        if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
-          continue
-        }
-
-        _data_active_count += 1
-
-        if (SDMData.AuxiliaryPreview.length <= SDMConf.Preview.map) {
-          SDMData.AuxiliaryPreview.push(item)
-        } else if (_Etc.focus_did === item["__did"] && SDMData.AuxiliaryPreview.length <= (2 * SDMConf.Preview.map)) {
-          // If one dataset is focused, we allow up to 2 times the preview size
-          // this could help when have two very large datasets, so the smaller
-          // one does not keep being removed
-          SDMData.AuxiliaryPreview.push(item)
-        }
-      }
-
-      // Data without coordinates
-      // @TODO
-
-      // SDMData.MainPreview = items_to_display
-
-      // console.log('update_filter_imediate ___ 2')
-      // data_ex_count_t.textContent = _data_ex_count_t
-      // data_active_count.textContent = _data_active_count
-      // data_active_count.textContent = new Intl.NumberFormat(locale_number).format(_data_active_count)
-      UIb.data_active_count.textContent = (new Intl.NumberFormat(_Etc.locale_number).format(SDMData.MainPreview.length)) + ' (' + (new Intl.NumberFormat(_Etc.locale_number).format(_data_active_count)) + ')'
-      // output.textContent = output_printer(items_to_display)
-      // output.textContent = output_printer(items_to_display)
-
-      // console.log('SDMData.MainPreview', SDMData.MainPreview)
-      //SDMData.MainPreview = items_to_display.slice(0, SDMConf.Preview.map)
-
-      if (_Etc.hide_did >= 0) {
-        // Prefill hide_did_affected with zeroes
-        document.querySelector("#hide_did_output_log").innerHTML = JSON.stringify(_Etc.hide_did_affected)
-        // hide_did_affected = new Array(WorkingInputFiles.length).fill(0);
-      } else {
-        document.querySelector("#hide_did_output_log").innerHTML = ''
-      }
-
-      if (document.getElementById('ui_text_preview').checked) {
-        UIb.output.value = output_printer(SDMData.MainPreview)
-      }
-
-      if (document.getElementById('ui_text_nopos_preview').checked) {
-        UIb.output2.value = output_printer(SDMData.AuxiliaryPreview)
-      }
-
-      if (document.getElementById('ui_map_preview').checked) {
-        update_map()
-      }
-
-      // SDMData.MainPreview = items_to_display
-
-      // let freeBusLayer = L.geoJSON(SDMData.MainPreview).addTo(map);
-      // output.textContent = output_printer_map(items_to_display)
-    }
-
-
 
     UIb.filter_active_simple.addEventListener('keyup', function (ev) {
       // console.log(ev)
-      update_filter_delayed()
+      UI.update_filter_delayed()
       // console.log(filter_active_simple.value)
     })
 
@@ -3840,191 +3979,8 @@ phone
       // console.log(filter_active_simple.value)
     }
 
-    // @TODO, esse talvez nao de
-    const ui_datasets_list = function (working_files) {
-      // console.log('ui_datasets_list')
-      const map_dataset_list = document.getElementById('map_dataset_list')
-
-      if (_Etc.enabled_files.indexOf(-1) === 0) {
-        // needs initialization
-        _Etc.enabled_files = []
-        working_files.forEach(function (item, index) {
-          _Etc.enabled_files.push(index + 1)
-        })
-      }
-      _Etc.enabled_files
-      let _html = []
-      _html.push(`<h2 class="visually-hidden">Filtros</h2>`)
-      _html.push(`<div class="row v_filter_bottom-element">`)
-      _html.push(`  <div class="col">`)
-      _html.push(`  <h3 class="h5">Loaded datasets</h3>`)
-      working_files.forEach(function (item, index) {
-        // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
-        _html.push(`<div class="form-check form-switch">
-  <input class="form-check-input" type="checkbox" role="switch" id="check__did${index + 1}" data-did="${index + 1}" checked onchange="UI.ui_datasets_list_event(event)">
-  <label class="form-check-label" for="check__did${index + 1}">
-    <img height="41" width="25" src="${UI.ui_map_pin_images(index + 1)}"/>
-    [${UI.ui_datasets_list_did_itens_count(index + 1)}]
-    ${item["name"]}
-  </label>
-</div>`)
-      })
-
-      _html.push(`  </div>`)
-      _html.push(`  <div class="col">`)
-      _html.push(`    <div class="row">`)
-      _html.push(`      <h3 class="h5">Datasets used to hide others</h3>`)
-      _html.push(`      <select class="form-select" aria-label="Dataset to substract" onchange="UI.ui_datasets_list_event(event)" id="hide_did">
-  <option selected value="-1">- Dataset to substract - </option>`)
-      working_files.forEach(function (item, index) {
-        // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
-        _html.push(`<option value="${index + 1}">${item["name"]}</option>`)
-      })
-      _html.push(`      </select>`)
-      _html.push(`    </div>`)
-      _html.push(`    <div class="row">`)
-      _html.push(`      <div class="col">`)
-      _html.push(`        <div class="input-group mb-3">
-  <span class="input-group-text" id="">Distância (m)</span>
-  <input type="text" class="form-control" placeholder="-1 to disable" id="hide_did_dist" aria-label="Distancia" value="25" onchange="UI.ui_datasets_list_event(event)">
-</div>`)
-      _html.push(`      </div>`)
-      _html.push(`      <div class="col">`)
-      _html.push(`        <div class="input-group mb-3">
-  <span class="input-group-text" id="">Keys</span>
-  <input type="text" class="form-control" placeholder="phone,email,ref:vatin" aria-label="Key" value="phone,email,ref:vatin" id="hide_did_keys"  onchange="UI.ui_datasets_list_event(event)">
-</div>`)
-      _html.push(`        </div>`)
-      _html.push(`      </div>`)
-      _html.push(`    <div>`)
-      _html.push(`      <output id="hide_did_output_log"></output>`)
-      _html.push(`    </div>`)
-      _html.push(`    <div class="row">`)
-      _html.push(`      <h3 class="h5">Dataset foco</h3>`)
-      _html.push(`      <select class="form-select" aria-label="Dataset de foco" onchange="UI.ui_datasets_list_event(event)" id="focus_did">
-  <option selected value="-1">- Dataset de foco - </option>`)
-      working_files.forEach(function (item, index) {
-        // _html.push(`<li><img height="41" width="25" src="${ui_map_pin_images(index)}"/> ${item["name"]}</li>`)
-        _html.push(`<option value="${index + 1}">${item["name"]}</option>`)
-      })
-      _html.push(`      </select>`)
-      _html.push(`  </div>`)
-      _html.push(`</div>`)
-      //_html.push(`</div>`)
-
-      //map_dataset_list.innerHTML = "TODO"
-      map_dataset_list.innerHTML = _html.join("\n")
-
-      update_ui_refpos()
-      update_filter_delayed()
-    }
-
     document.addEventListener("DOMContentLoaded", UI.init_ui)
 
-    /**
-     * Javascript events that need to respond to changes in the input,
-     * mostly after files are loaded, but user is changing filters
-     **/
-    const update_ui = function () {
-      // const ui_filter_extras = document.getElementById("ui_filter_extras");
-      // const ui_text_preview = document.getElementById("ui_text_preview");
-      const ui_map_preview = document.getElementById("ui_map_preview");
-      const ui_text_nopos_preview = document.getElementById("ui_text_nopos_preview");
-      // const ui_map_preview_realtime = document.getElementById("ui_map_preview_realtime");
-
-      if (ui_text_nopos_preview.checked) {
-        document.querySelector("#output_items_spatial").classList = "col-xl-4 col-lg-6"
-        document.querySelector("#output_items_nonspatial").classList = "col-xl-4 col-lg-6"
-        document.querySelector("#map-container").classList = "col-xl-4"
-        map.invalidateSize()
-      } else {
-        document.querySelector("#output_items_spatial").classList = "col-xl-4"
-        document.querySelector("#output_items_nonspatial").classList = "d-none"
-        document.querySelector("#map-container").classList = "col-xl-8"
-        map.invalidateSize()
-      }
-
-      // const output = document.getElementById("output");
-      // if (!ui_filter_extras.checked) {
-      //   document.getElementById('extra_filter').classList.add('visually-hidden')
-      //   refpoint_latitude = null
-      //   refpoint_longitude = null
-      //   refpoint_distance = null
-
-      // } else {
-      //   document.getElementById('extra_filter').classList.remove('visually-hidden')
-      //   refpoint_latitude = null
-      //   refpoint_longitude = null
-      //   refpoint_distance = null
-      // }
-      // if (!ui_text_preview.checked) {
-      //   document.getElementById('output').classList.add('visually-hidden')
-      // } else {
-      //   document.getElementById('output').classList.remove('visually-hidden')
-      // }
-      // if (!ui_map_preview.checked) {
-      //   document.getElementById('map-container').classList.add('visually-hidden')
-      //   document.getElementById('ui_map_preview_realtime_group').classList.add('visually-hidden')
-      //   document.getElementById('ui_map_preview_realtime').checked = false
-      //   document.getElementById('render_active_group').classList.add('visually-hidden')
-      // } else {
-      //   document.getElementById('map-container').classList.remove('visually-hidden')
-      //   document.getElementById('ui_map_preview_realtime_group').classList.remove('visually-hidden')
-      //   document.getElementById('render_active_group').classList.remove('visually-hidden')
-      // }
-      // if (!ui_map_preview_realtime.checked) {
-      //   document.getElementById('render_active').classList.remove('visually-hidden')
-      //   // document.getElementById('ui_map_preview_realtime_group').classList.add('visually-hidden')
-      //   // document.getElementById('ui_map_preview_realtime').checked = false
-      //   // document.getElementById('render_active_group').classList.add('visually-hidden')
-      // } else {
-      //   document.getElementById('render_active').classList.add('visually-hidden')
-      //   // document.getElementById('ui_map_preview_realtime_group').classList.remove('visually-hidden')
-      //   // document.getElementById('render_active_group').classList.remove('visually-hidden')
-      // }
-
-      // SDMData.MainPreview
-    }
-
-    function update_ui_refpos() {
-      const filter_active_latlon = document.getElementById("filter_active_latlon").value;
-      const filter_active_latlon_dist = parseInt(document.getElementById("filter_active_latlon_dist").value);
-
-
-      // @fid=98
-      if (filter_active_latlon.includes("@fid=")) {
-        let _parts = filter_active_latlon.trim().split("@fid=")
-        let _fid = parseInt(_parts[1])
-        // console.log('@fid', filter_active_latlon, _parts)
-
-        SDMData.Main.some(function (item, index) {
-          if (item["__fid"] == _fid) {
-            // Only if is Point, others may not be excatly on center
-            _Etc.refpoint_latlon = item['geometry']['coordinates']
-            return true
-          }
-        })
-
-      } else if (filter_active_latlon.includes("#map=")) {
-        // example https://www.openstreetmap.org/edit#map=18/-30.15178/-51.13461
-        // example parse https://osm.org/edit#map=18/-30.15178/-51.13461
-        let _parts = filter_active_latlon.split("#map=")
-        let _parts2 = _parts[1].split("/") // zoom, lon, lat
-        // On URL, is the opposite order
-        _Etc.refpoint_latlon = [parseFloat(_parts2[2]), parseFloat(_parts2[1])]
-      } else {
-        const _latlon = filter_active_latlon.split(',')
-        if (_latlon.length != 2) {
-          _Etc.refpoint_latlon = null
-        } else {
-          _Etc.refpoint_latlon = [parseFloat(_latlon[0]), parseFloat(_latlon[1])]
-          // refpoint_longitude = _latlon[0]
-          // refpoint_longitude = _latlon[1]
-        }
-      }
-
-      _Etc.refpoint_distance = filter_active_latlon_dist
-    }
 
     const ui_clean = function (event) {
       // console.log(event)
@@ -4059,16 +4015,16 @@ phone
     }
 
     //document.getElementById("ui_text_preview").addEventListener('change', update_ui)
-    document.getElementById("ui_text_nopos_preview").addEventListener('change', update_ui)
-    document.getElementById("ui_map_preview").addEventListener('change', update_ui)
+    document.getElementById("ui_text_nopos_preview").addEventListener('change', UI.update_ui)
+    document.getElementById("ui_map_preview").addEventListener('change', UI.update_ui)
     // document.getElementById("ui_filter_extras").addEventListener('change', update_ui)
-    document.getElementById("filter_active_latlon").addEventListener('change', update_ui_refpos)
-    document.getElementById("filter_active_latlon_dist").addEventListener('change', update_ui_refpos)
+    document.getElementById("filter_active_latlon").addEventListener('change', UI.update_ui_refpos)
+    document.getElementById("filter_active_latlon_dist").addEventListener('change', UI.update_ui_refpos)
     // https://stackoverflow.com/questions/41256026/clear-marker-layers-leaflet
 
     UIb.filter_active_simple.addEventListener('keyup', function (ev) {
       // console.log(ev)
-      update_filter_delayed()
+      UI.update_filter_delayed()
 
       // if (document.getElementById('ui_map_preview').checked) {
       //   // console.log('todo update map now (TODO otimize only one render)')
@@ -4079,16 +4035,16 @@ phone
     })
 
     filter_active_latlon.addEventListener('keyup', function (ev) {
-      update_ui_refpos()
-      update_filter_delayed()
+      UI.update_ui_refpos()
+      UI.update_filter_delayed()
       // update_map()
       // if (document.getElementById('ui_map_preview').checked) {
       //   update_map()
       // }
     })
     filter_active_latlon_dist.addEventListener('keyup', function (ev) {
-      update_ui_refpos()
-      update_filter_delayed()
+      UI.update_ui_refpos()
+      UI.update_filter_delayed()
       // update_map()
       // if (document.getElementById('ui_map_preview_realtime').checked) {
       //   //   update_map()

@@ -60,6 +60,10 @@ All features with same code are considered to be in the same group ()
 
 <!--
 
+@TODO maybe implement DOT export 
+  - https://en.wikipedia.org/wiki/DOT_(graph_description_language)
+  - https://viz-js.com/
+
 @TODO implement these shortcuts to create implicit queries to match objects
 
 
