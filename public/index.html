@@ -1526,10 +1526,388 @@ phone
       }
     }
 
+    // Matcher.
     class Matcher {
-      static _todo() {
-        // Move other logic here
+
+      static filter(item, options_general, options_specific, inverse = false) {
+        // console.log('filter', item, options_general, options_specific)
+        // if (options === null || !!options) {
+        //   return !!inverse
+        // }
+        // console.log('filter', item, options)
+
+        let options = options_general || {}
+        let item_props = item["properties"]
+        //let item_did = 
+
+        // console.log('options before', item["__did"], item["__fid"], options, options_specific)
+
+        // if (options_specific !== null && `@did=${item["__did"]}` in options_specific) {
+        if (options_specific && options_specific[`@did=${item["__did"]}`]) {
+          // console.log('options tem especifico', item["__did"], item["__fid"], options, options_specific[`@did=${item["__did"]}`])
+          for (const [key, value] of Object.entries(options_specific[`@did=${item["__did"]}`])) {
+            options[key] = value
+          }
+        } else {
+          // console.log('options !!!NAO!! tem especifico', item["__did"], item["__fid"], options)
+        }
+
+        // console.log('options after', item["__did"], options, options_specific)
+
+        let maches_count = 0
+        let failed = false
+        for (const [key, regex] of Object.entries(options)) {
+          // if (!item_props.hasOwnProperty(key)) {
+          if (!item_props.hasOwnProperty(key) && options[key] !== '') {
+            return false
+          }
+          // let _regex = ''
+          let value_str = item_props[key]
+          if (typeof value_str !== 'sring') {
+            value_str = value_str.toString()
+          }
+          // if 
+          // console.log(item[key])
+          if (!value_str.match(regex)) {
+            // Maybe tolerage optional matches
+            // maches_count += 1
+            // maches_count += 1
+            return false
+          } else {
+            maches_count += 1
+          }
+          // console.log(`${key}: ${value}`);
+        }
+        // console.log('passou', item["__did"], item["__fid"], options)
+        return true
       }
+
+      /**
+       * Returns true if both objects are <= to maximum distance
+       * Zero means exact position
+       **/
+      static filter_by_dist(item_geometry, ref_geometry_or_latlon, dist_in_m, default_invalid_item = true, default_ref_invalid = true) {
+
+        // console.log('item_geometry', item_geometry, ref_latlon)
+        // console.log(' filter by dist_in_m', dist_in_m)
+
+        let item_latlon = null
+        let ref_latlon = null
+
+        // Tolerate the item not having geometry
+        if (!item_geometry) {
+          // return true
+
+          // console.log('invalid item_geometry defaults to ', default_invalid_item)
+          return default_invalid_item
+        }
+        // Does not colerate ref have no geometry
+        if (!ref_geometry_or_latlon) {
+          // return false
+
+          // console.log('invalid ref_geometry_or_latlon defaults to ', default_ref_invalid)
+          return default_ref_invalid
+        }
+
+        if (item_geometry["type"] == "Point") {
+          item_latlon = item_geometry["coordinates"]
+        } else if (item_geometry["type"] == "Polygon") {
+          // THe ideal would be calculate the centroid, but here taking just first point
+          item_latlon = item_geometry["coordinates"][0][0]
+        } else {
+          // @TODO test other types
+          return default_invalid_item
+        }
+
+        if (Array.isArray(ref_geometry_or_latlon) && ref_geometry_or_latlon.length === 2) {
+          ref_latlon = ref_geometry_or_latlon
+        } else if (ref_geometry_or_latlon["type"] == "Point") {
+          ref_latlon = ref_geometry_or_latlon["coordinates"]
+        } else if (ref_geometry_or_latlon["type"] == "Polygon") {
+          // THe ideal would be calculate the centroid, but here taking just first point
+          ref_latlon = ref_geometry_or_latlon["coordinates"][0][0]
+        } else {
+          // @TODO test other types
+          return default_ref_invalid
+        }
+
+        // if (dist_in_m === 0) {
+        //   return item_latlon === ref_latlon
+        // }
+
+        // console.log(item_latlon, ref_latlon)
+
+        const dist_in_km = haversineDistance(item_latlon, ref_latlon)
+
+        // console.log('filter_by_dist', dist_in_km, dist_in_m, dist_in_km <= (dist_in_m / 1000))
+
+        // if (!dist_in_m) {
+        //   console.log('dist_in_m', dist_in_m)
+        //   console.trace(dist_in_m)
+        // }
+        return dist_in_km <= (dist_in_m / 1000)
+      }
+
+      static filter_in_dids(item, dids_list) {
+        // console.log('filter_in_dids', item, dids_list, item["__did"], dids_list.indexOf(item["__did"]) > -1)
+
+        // Without explicitly list to filter, we assume its always pass
+        //if (!dids_list || dids_list.length === 0) {
+        // if (dids_list.length === 0) {
+        //   return true
+        // }
+
+        // return false
+
+        return dids_list.indexOf(item["__did"]) > -1
+      }
+
+      /**
+       * Returns false if an item matched one or more itens from reference file
+       * true means it did not matched
+       **/
+      static filter_substract_file(item, hide_did, hide_did_dist, hide_did_keys) {
+        // console.log('filter_substract_file started', item, hide_did, hide_did_dist, hide_did_keys)
+
+        if (hide_did === -1) {
+          // No source file to substract: skip
+          return true
+        }
+
+        if (hide_did_dist <= -1 && hide_did_keys.length === 0) {
+          // console.log('filter_substract_file skipped 1')
+          console.warn("filter_substract_file have clauses too flexible (any world distance, any tag)")
+          // return true
+          // document.getElementById("hide_did_output_log").innerText = "Universal exclusion?"
+          _Etc.hide_did_affected = ["Universal exclusion? (any distance, any tagging)"]
+          return false
+        }
+
+        // This should not happen
+        if (item === null || !item["geometry"] || item["geometry"] === null) {
+          // increase conter
+          // console.log('hide_did_affected', hide_did_affected)
+          // hide_did_affected[item["__did"]] -= 1
+          // console.log('filter_substract_file skipped 2')
+          return false
+        }
+
+        // console.log('filter_substract_file going to test', item)
+
+        // As soon as we gind
+        for (const source_item of SDMData.Main) {
+          // No need to substract itens from subtracting file itself
+          if (source_item["__did"] === hide_did) {
+            // console.log('....', source_item["__did"], hide_did)
+            let okay = true
+            let has_distmatch = null
+            let has_keymatch = null
+            // @TODO implement tagging check
+
+            if (hide_did_keys.length > 0) {
+
+              // Keys exist, change from null to default false
+              has_keymatch = false
+
+              let _keys_matched = 0
+              // console.log('before loop item vs source_item(file to match)', item, source_item)
+              for (const testkey of hide_did_keys) {
+                //console.log('testkey', source_item["properties"])
+                if (testkey in source_item["properties"] && testkey in item["properties"]) {
+                  let _testval = source_item["properties"][testkey].toString()
+                  let _targetval = item["properties"][testkey].toString()
+                  // console.log('test', _testval, _targetval)
+                  if (_targetval.includes(";")) {
+                    // console.log('includes;')
+                    if (_targetval.split(";").indexOf(_testval)) {
+                      // okay = false
+                      _keys_matched += 1
+                    }
+                  } else if (_testval === _targetval) {
+                    _keys_matched += 1
+                    // console.log('prefect tagging match _testval, _targetval', _testval, _targetval)
+                  }
+                }
+              }
+
+              if (_keys_matched > 0) {
+                //okay = false
+                has_keymatch = true
+              }
+              // okay = (_keys_matched > 0)
+            }
+
+            // console.log('result taging for item', okay, item)
+
+            // if (hide_did_dist > -1) {
+            if (hide_did_dist > -1 && (has_keymatch === null || has_keymatch === true)) {
+              has_distmatch = false
+              if (Matcher.filter_by_dist(source_item["geometry"], item["geometry"], hide_did_dist)) {
+                has_distmatch = true
+                // console.log('prefect dist match', source_item, item)
+              }
+            }
+
+            // if (okay === true) {
+            if (
+              (has_distmatch === null || has_distmatch === true) &&
+              (has_keymatch === null || has_keymatch === true)
+            ) {
+              // Already have a match, count and abort imediatelly
+              // increase conter
+              // console.log('hide_did_affected, must not be included', hide_did_affected)
+              // hide_did_affected[item["__did"]] -= 1
+              _Etc.hide_did_affected[item["__did"]] -= 1
+              return false
+            }
+          }
+        }
+
+        // No match means we let it run
+        // console.warn('filter_substract_file allow this item', item)
+        return true
+      }
+
+      static match_tags(ref_props, item_props, rules, missing_ref = true, missing_target = true) {
+        if (!rules || rules.length === 0) {
+          // return true
+          return 100
+        }
+
+        let success = 0
+        let skip = 0
+        for (let index = 0; index < rules.length; index++) {
+          const rule_key = rules[index];
+
+          if (!(rule_key in ref_props)) {
+            if (missing_ref) {
+              skip += 1
+            }
+            continue
+          }
+          if (!(rule_key in ref_props)) {
+            if (missing_target) {
+              skip += 1
+            }
+            continue
+          }
+          // @TODO implement some normalization for names, addr:postcode, etc
+          // levenshtein.js https://gist.github.com/andrei-m/982927
+          if (ref_props[rule_key] === item_props[rule_key]) {
+            success += 1
+          }
+        }
+
+        if (success === rules.length) {
+          return 100
+        }
+
+        if (success === 0 && skip !== rules.length) {
+          return 0
+        }
+
+        if (success === 0 && skip === rules.length) {
+          return 51
+        }
+
+        // @TODO
+        return 0
+
+      }
+
+
+      /**
+       * Returns likehood of item match by at least one item from reference dataset
+       * 
+       * (For sake of computation power, it only return the very first matched object)
+       * 
+       * @param item  GeoJSON Feature object
+       * @returns Number  0 (very unlikely), > 90 stricter match
+       */
+      static filter_by_reference_on_import(item) {
+        // return true
+        let item_props = item["properties"]
+        let item_pos = Geo.geojson_feature_centroid(item)
+        let dist = -1
+        // let already_failed = false
+        let already_matched = null
+        let score = 0
+
+        SDMData.ReferenceStats.target_items += 1
+        if (item_pos === null && (SDMConf.Reference.distance !== -1 || SDMConf.Reference.allow_missing_ref)) {
+          SDMData.ReferenceStats.target_items_no_pos += 1
+          // console.log('filter_by_reference_on_import item_pos', item_pos)
+          return 0
+        }
+
+        let ref_item
+        let ref_pos
+        let ref_vs_item_dist
+        let _dist_km
+        let _tag_confidence = 0
+
+        // console.log('filter_by_reference_on_import going to test', item)
+
+        for (let index = 0; index < SDMData.Reference.length; index++) {
+          ref_item = SDMData.Reference[index];
+          ref_pos = Geo.geojson_feature_centroid(ref_item)
+          if (!ref_pos) {
+            console.log('ref_item failed centroid', ref_pos, item_pos)
+            continue
+          }
+
+          _dist_km = haversineDistance(item_pos, ref_pos)
+          // ref_vs_item_dist = _dist_km / 1000
+          ref_vs_item_dist = _dist_km * 1000
+          if (ref_vs_item_dist <= SDMConf.Reference.distance) {
+            // Try match by tags
+            _tag_confidence = Matcher.match_tags(ref_pos, item_pos, SDMConf.Reference.rules, true, true)
+
+            if (_tag_confidence > 49) {
+              already_matched = true
+              break
+            }
+
+            // If failed by tags, but less stricter match allows, test agasinst
+            // stricter distance
+
+            if (ref_vs_item_dist <= SDMConf.Reference.distance2) {
+              // console.log('stricter match', item, ref_vs_item_dist, _dist_km)
+              already_matched = true
+            }
+          }
+          // const dist_in_km = haversineDistance(item_pos, ref_latlon)
+        }
+
+        // if (SDMConf.Reference.rules && SDMConf.Reference.rules.length) {
+        //   let tags = []
+        //   if (item.hasOwnProperty("properties")) {
+        //     tags = Object.keys(_item["properties"])
+        //   }
+
+        //   SDMConf.Reference.rules.forEach(function (_rule, index) {
+        //     // if (!(tags.indexOf(_item) > -1)) {
+        //     let at_least_one_match = false
+        //     tags.forEach(function (prop_key) {
+        //       if (prop_key.match(_rule)) {
+        //         at_least_one_match = true
+        //       }
+        //     })
+        //     if (!at_least_one_match) {
+        //       SDMData.ReferenceStats.target_items_no_tags[index] += 1
+        //     }
+        //   })
+        // }
+
+        // SDMData.ReferenceStats.target_items_no_tags
+        if (already_matched === true) {
+          // @TODO make this more informative
+          score = 100
+        }
+        // return true
+        return score
+      }
+
     }
 
     // UI.
@@ -1984,388 +2362,7 @@ phone
       }
     }
 
-    function match_tags(ref_props, item_props, rules, missing_ref = true, missing_target = true) {
-      if (!rules || rules.length === 0) {
-        // return true
-        return 100
-      }
 
-      let success = 0
-      let skip = 0
-      for (let index = 0; index < rules.length; index++) {
-        const rule_key = rules[index];
-
-        if (!(rule_key in ref_props)) {
-          if (missing_ref) {
-            skip += 1
-          }
-          continue
-        }
-        if (!(rule_key in ref_props)) {
-          if (missing_target) {
-            skip += 1
-          }
-          continue
-        }
-        // @TODO implement some normalization for names, addr:postcode, etc
-        // levenshtein.js https://gist.github.com/andrei-m/982927
-        if (ref_props[rule_key] === item_props[rule_key]) {
-          success += 1
-        }
-      }
-
-      if (success === rules.length) {
-        return 100
-      }
-
-      if (success === 0 && skip !== rules.length) {
-        return 0
-      }
-
-      if (success === 0 && skip === rules.length) {
-        return 51
-      }
-
-      // @TODO
-      return 0
-
-    }
-
-    /**
-     * Returns likehood of item match by at least one item from reference dataset
-     * 
-     * (For sake of computation power, it only return the very first matched object)
-     * 
-     * @param item  GeoJSON Feature object
-     * @returns Number  0 (very unlikely), > 90 stricter match
-     */
-    function filter_by_reference_on_import(item) {
-      // return true
-      let item_props = item["properties"]
-      let item_pos = Geo.geojson_feature_centroid(item)
-      let dist = -1
-      // let already_failed = false
-      let already_matched = null
-      let score = 0
-
-      SDMData.ReferenceStats.target_items += 1
-      if (item_pos === null && (SDMConf.Reference.distance !== -1 || SDMConf.Reference.allow_missing_ref)) {
-        SDMData.ReferenceStats.target_items_no_pos += 1
-        // console.log('filter_by_reference_on_import item_pos', item_pos)
-        return 0
-      }
-
-      let ref_item
-      let ref_pos
-      let ref_vs_item_dist
-      let _dist_km
-      let _tag_confidence = 0
-
-      // console.log('filter_by_reference_on_import going to test', item)
-
-      for (let index = 0; index < SDMData.Reference.length; index++) {
-        ref_item = SDMData.Reference[index];
-        ref_pos = Geo.geojson_feature_centroid(ref_item)
-        if (!ref_pos) {
-          console.log('ref_item failed centroid', ref_pos, item_pos)
-          continue
-        }
-
-        _dist_km = haversineDistance(item_pos, ref_pos)
-        // ref_vs_item_dist = _dist_km / 1000
-        ref_vs_item_dist = _dist_km * 1000
-        if (ref_vs_item_dist <= SDMConf.Reference.distance) {
-          // Try match by tags
-          _tag_confidence = match_tags(ref_pos, item_pos, SDMConf.Reference.rules, true, true)
-
-          if (_tag_confidence > 49) {
-            already_matched = true
-            break
-          }
-
-          // If failed by tags, but less stricter match allows, test agasinst
-          // stricter distance
-
-          if (ref_vs_item_dist <= SDMConf.Reference.distance2) {
-            // console.log('stricter match', item, ref_vs_item_dist, _dist_km)
-            already_matched = true
-          }
-        }
-        // const dist_in_km = haversineDistance(item_pos, ref_latlon)
-      }
-
-      // if (SDMConf.Reference.rules && SDMConf.Reference.rules.length) {
-      //   let tags = []
-      //   if (item.hasOwnProperty("properties")) {
-      //     tags = Object.keys(_item["properties"])
-      //   }
-
-      //   SDMConf.Reference.rules.forEach(function (_rule, index) {
-      //     // if (!(tags.indexOf(_item) > -1)) {
-      //     let at_least_one_match = false
-      //     tags.forEach(function (prop_key) {
-      //       if (prop_key.match(_rule)) {
-      //         at_least_one_match = true
-      //       }
-      //     })
-      //     if (!at_least_one_match) {
-      //       SDMData.ReferenceStats.target_items_no_tags[index] += 1
-      //     }
-      //   })
-      // }
-
-      // SDMData.ReferenceStats.target_items_no_tags
-      if (already_matched === true) {
-        // @TODO make this more informative
-        score = 100
-      }
-      // return true
-      return score
-    }
-
-    function filter(item, options_general, options_specific, inverse = false) {
-      // console.log('filter', item, options_general, options_specific)
-      // if (options === null || !!options) {
-      //   return !!inverse
-      // }
-      // console.log('filter', item, options)
-
-      let options = options_general || {}
-      let item_props = item["properties"]
-      //let item_did = 
-
-      // console.log('options before', item["__did"], item["__fid"], options, options_specific)
-
-      // if (options_specific !== null && `@did=${item["__did"]}` in options_specific) {
-      if (options_specific && options_specific[`@did=${item["__did"]}`]) {
-        // console.log('options tem especifico', item["__did"], item["__fid"], options, options_specific[`@did=${item["__did"]}`])
-        for (const [key, value] of Object.entries(options_specific[`@did=${item["__did"]}`])) {
-          options[key] = value
-        }
-      } else {
-        // console.log('options !!!NAO!! tem especifico', item["__did"], item["__fid"], options)
-      }
-
-      // console.log('options after', item["__did"], options, options_specific)
-
-      let maches_count = 0
-      let failed = false
-      for (const [key, regex] of Object.entries(options)) {
-        // if (!item_props.hasOwnProperty(key)) {
-        if (!item_props.hasOwnProperty(key) && options[key] !== '') {
-          return false
-        }
-        // let _regex = ''
-        let value_str = item_props[key]
-        if (typeof value_str !== 'sring') {
-          value_str = value_str.toString()
-        }
-        // if 
-        // console.log(item[key])
-        if (!value_str.match(regex)) {
-          // Maybe tolerage optional matches
-          // maches_count += 1
-          // maches_count += 1
-          return false
-        } else {
-          maches_count += 1
-        }
-        // console.log(`${key}: ${value}`);
-      }
-      // console.log('passou', item["__did"], item["__fid"], options)
-      return true
-    }
-
-
-
-    /**
-     * Returns true if both objects are <= to maximum distance
-     * Zero means exact position
-     **/
-    function filter_by_dist(item_geometry, ref_geometry_or_latlon, dist_in_m, default_invalid_item = true, default_ref_invalid = true) {
-
-      // console.log('item_geometry', item_geometry, ref_latlon)
-      // console.log(' filter by dist_in_m', dist_in_m)
-
-      let item_latlon = null
-      let ref_latlon = null
-
-      // Tolerate the item not having geometry
-      if (!item_geometry) {
-        // return true
-
-        // console.log('invalid item_geometry defaults to ', default_invalid_item)
-        return default_invalid_item
-      }
-      // Does not colerate ref have no geometry
-      if (!ref_geometry_or_latlon) {
-        // return false
-
-        // console.log('invalid ref_geometry_or_latlon defaults to ', default_ref_invalid)
-        return default_ref_invalid
-      }
-
-      if (item_geometry["type"] == "Point") {
-        item_latlon = item_geometry["coordinates"]
-      } else if (item_geometry["type"] == "Polygon") {
-        // THe ideal would be calculate the centroid, but here taking just first point
-        item_latlon = item_geometry["coordinates"][0][0]
-      } else {
-        // @TODO test other types
-        return default_invalid_item
-      }
-
-      if (Array.isArray(ref_geometry_or_latlon) && ref_geometry_or_latlon.length === 2) {
-        ref_latlon = ref_geometry_or_latlon
-      } else if (ref_geometry_or_latlon["type"] == "Point") {
-        ref_latlon = ref_geometry_or_latlon["coordinates"]
-      } else if (ref_geometry_or_latlon["type"] == "Polygon") {
-        // THe ideal would be calculate the centroid, but here taking just first point
-        ref_latlon = ref_geometry_or_latlon["coordinates"][0][0]
-      } else {
-        // @TODO test other types
-        return default_ref_invalid
-      }
-
-      // if (dist_in_m === 0) {
-      //   return item_latlon === ref_latlon
-      // }
-
-      // console.log(item_latlon, ref_latlon)
-
-      const dist_in_km = haversineDistance(item_latlon, ref_latlon)
-
-      // console.log('filter_by_dist', dist_in_km, dist_in_m, dist_in_km <= (dist_in_m / 1000))
-
-      // if (!dist_in_m) {
-      //   console.log('dist_in_m', dist_in_m)
-      //   console.trace(dist_in_m)
-      // }
-      return dist_in_km <= (dist_in_m / 1000)
-    }
-
-    function filter_in_dids(item, dids_list) {
-      // console.log('filter_in_dids', item, dids_list, item["__did"], dids_list.indexOf(item["__did"]) > -1)
-
-      // Without explicitly list to filter, we assume its always pass
-      //if (!dids_list || dids_list.length === 0) {
-      // if (dids_list.length === 0) {
-      //   return true
-      // }
-
-      // return false
-
-      return dids_list.indexOf(item["__did"]) > -1
-    }
-
-
-    /**
-     * Returns false if an item matched one or more itens from reference file
-     * true means it did not matched
-     **/
-    function filter_substract_file(item, hide_did, hide_did_dist, hide_did_keys) {
-      // console.log('filter_substract_file started', item, hide_did, hide_did_dist, hide_did_keys)
-
-      if (hide_did === -1) {
-        // No source file to substract: skip
-        return true
-      }
-
-      if (hide_did_dist <= -1 && hide_did_keys.length === 0) {
-        // console.log('filter_substract_file skipped 1')
-        console.warn("filter_substract_file have clauses too flexible (any world distance, any tag)")
-        // return true
-        // document.getElementById("hide_did_output_log").innerText = "Universal exclusion?"
-        _Etc.hide_did_affected = ["Universal exclusion? (any distance, any tagging)"]
-        return false
-      }
-
-      // This should not happen
-      if (item === null || !item["geometry"] || item["geometry"] === null) {
-        // increase conter
-        // console.log('hide_did_affected', hide_did_affected)
-        // hide_did_affected[item["__did"]] -= 1
-        // console.log('filter_substract_file skipped 2')
-        return false
-      }
-
-      // console.log('filter_substract_file going to test', item)
-
-      // As soon as we gind
-      for (const source_item of SDMData.Main) {
-        // No need to substract itens from subtracting file itself
-        if (source_item["__did"] === hide_did) {
-          // console.log('....', source_item["__did"], hide_did)
-          let okay = true
-          let has_distmatch = null
-          let has_keymatch = null
-          // @TODO implement tagging check
-
-
-          if (hide_did_keys.length > 0) {
-
-            // Keys exist, change from null to default false
-            has_keymatch = false
-
-            let _keys_matched = 0
-            // console.log('before loop item vs source_item(file to match)', item, source_item)
-            for (const testkey of hide_did_keys) {
-              //console.log('testkey', source_item["properties"])
-              if (testkey in source_item["properties"] && testkey in item["properties"]) {
-                let _testval = source_item["properties"][testkey].toString()
-                let _targetval = item["properties"][testkey].toString()
-                // console.log('test', _testval, _targetval)
-                if (_targetval.includes(";")) {
-                  // console.log('includes;')
-                  if (_targetval.split(";").indexOf(_testval)) {
-                    // okay = false
-                    _keys_matched += 1
-                  }
-                } else if (_testval === _targetval) {
-                  _keys_matched += 1
-                  // console.log('prefect tagging match _testval, _targetval', _testval, _targetval)
-                }
-              }
-            }
-
-            if (_keys_matched > 0) {
-              //okay = false
-              has_keymatch = true
-            }
-            // okay = (_keys_matched > 0)
-          }
-
-          // console.log('result taging for item', okay, item)
-
-          // if (hide_did_dist > -1) {
-          if (hide_did_dist > -1 && (has_keymatch === null || has_keymatch === true)) {
-            has_distmatch = false
-            if (filter_by_dist(source_item["geometry"], item["geometry"], hide_did_dist)) {
-              has_distmatch = true
-              // console.log('prefect dist match', source_item, item)
-            }
-          }
-
-          // if (okay === true) {
-          if (
-            (has_distmatch === null || has_distmatch === true) &&
-            (has_keymatch === null || has_keymatch === true)
-          ) {
-            // Already have a match, count and abort imediatelly
-            // increase conter
-            // console.log('hide_did_affected, must not be included', hide_did_affected)
-            // hide_did_affected[item["__did"]] -= 1
-            _Etc.hide_did_affected[item["__did"]] -= 1
-            return false
-          }
-        }
-      }
-
-
-      // No match means we let it run
-      // console.warn('filter_substract_file allow this item', item)
-      return true
-    }
 
     function _init_exportable_or_not(untested_key, exportable_fields) {
       let value_str = untested_key
@@ -2487,11 +2484,6 @@ phone
         }
       })
       return output.join('\n\n')
-    }
-
-    function parseGeoJSON(text) {
-      let parsed = JSON.parse(text)
-      return parsed['features']
     }
 
     /**
@@ -2745,12 +2737,12 @@ phone
                     if (_geojson_object !== null) {
                       _data_ex_count_t += 1
 
-                      if (!(filter_options === null || filter(_geojson_object, filter_options))) {
+                      if (!(filter_options === null || Matcher.filter(_geojson_object, filter_options))) {
                         continue
                       }
 
                       if (SDMData.Reference.length !== 0) {
-                        match_score = filter_by_reference_on_import(_geojson_object, SDMConf.Reference)
+                        match_score = Matcher.filter_by_reference_on_import(_geojson_object, SDMConf.Reference)
                         // console.log('__match_score', match_score, item3, SDMConf.Reference)
                         if (match_score < 50) {
                           continue
@@ -2865,14 +2857,14 @@ phone
 
                 // console.log('Papa.parse start', active_item)
 
-                if (!(filter_options === null || filter(active_item, filter_options))) {
+                if (!(filter_options === null || Matcher.filter(active_item, filter_options))) {
                   return true
                 }
 
                 // console.log('Papa.parse end', active_item)
 
                 if (SDMData.Reference.length !== 0) {
-                  match_score = filter_by_reference_on_import(active_item, SDMConf.Reference)
+                  match_score = Matcher.filter_by_reference_on_import(active_item, SDMConf.Reference)
                   // console.log('__match_score', match_score, item3, SDMConf.Reference)
                   if (match_score < 50) {
                     return true
@@ -2914,12 +2906,12 @@ phone
                 const item3 = original_data['features'][index];
                 _data_ex_count_t += 1
 
-                if (!(filter_options === null || filter(item3, filter_options))) {
+                if (!(filter_options === null || Matcher.filter(item3, filter_options))) {
                   continue
                 }
 
                 if (SDMData.Reference.length !== 0) {
-                  match_score = filter_by_reference_on_import(item3, SDMConf.Reference)
+                  match_score = Matcher.filter_by_reference_on_import(item3, SDMConf.Reference)
                   // console.log('__match_score', match_score, item3, SDMConf.Reference)
                   if (match_score < 50) {
                     continue
@@ -3397,20 +3389,20 @@ phone
         const item = SDMData.Main[index];
 
         // Disabled files filter
-        if (!filter_in_dids(item, _Etc.enabled_files)) {
+        if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
           continue
         }
 
         // tagging filter
-        if (!filter(item, parsed_general, parsed_specific)) {
+        if (!Matcher.filter(item, parsed_general, parsed_specific)) {
           continue
         }
         // // filter by distance
-        if (!(filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
+        if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
           continue
         }
         // // Use a reference dataset to filter elements from another dataset. CPU intensive
-        if (!filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
+        if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
           continue
         }
 
@@ -3433,20 +3425,20 @@ phone
         const item = SDMData.Auxiliary[index];
 
         // Disabled files filter
-        if (!filter_in_dids(item, _Etc.enabled_files)) {
+        if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
           continue
         }
 
         // tagging filter
-        if (!filter(item, parsed_general, parsed_specific)) {
+        if (!Matcher.filter(item, parsed_general, parsed_specific)) {
           continue
         }
         // // filter by distance
-        if (!(filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
+        if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
           continue
         }
         // // Use a reference dataset to filter elements from another dataset. CPU intensive
-        if (!filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
+        if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
           continue
         }
 
@@ -3847,11 +3839,6 @@ phone
       // console.log('todo render_active')
       // console.log(filter_active_simple.value)
     }
-
-
-
-
-
 
     // @TODO, esse talvez nao de
     const ui_datasets_list = function (working_files) {
