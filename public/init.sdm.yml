@@ -3,6 +3,7 @@
 
 import_aliases:
   - id: global
+    type: global
     aliases:
       # Wikidata related
       - itemLabel|name

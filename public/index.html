@@ -127,7 +127,7 @@
                   🛈
                 </button>
                 <textarea class="form-control" data-conf="import_keys.global" placeholder=""
-                  id="data_ex_fields_exporter" style="height: 200px">// Most frequent at the top
+                  id="data_ex_fields_exporter" style="height: 200px">// Most frequent at the top (from HTML)
 addr:.*
 nohousenumber
 name
@@ -235,13 +235,13 @@ short_name:.+
               </div>
               <div class="col">
                 <!-- future -->
-                <label for="importer_aliases">Aliases (not implemented yet)</label>
+                <label for="impor_aliases">Aliases (not implemented yet)</label>
                 <button type="button" class="" data-bs-toggle="tooltip" data-bs-placement="top"
                   data-bs-title="Renamer for very common column names. Syntax: original_field|osm-schema-field|optional_function()">
                   🛈
                 </button>
-                <textarea class="form-control" data-conf="import_aliases.global" placeholder="" id="importer_aliases"
-                  style="height: 200px" disabled>//Wikidata related
+                <textarea class="form-control" data-conf="import_aliases.global" placeholder="" id="impor_aliases"
+                  style="height: 200px" disabled>//Wikidata related (from HTML)
 itemLabel|name
 item|wikidata|helper_wikidata_q()
 loc|coordinate_location|helper_point()
@@ -258,7 +258,7 @@ geo|coordinate_location|helper_point()
                   🛈
                 </button>
                 <textarea class="form-control" placeholder="key=value
-addr:postcode=1234.?" id="data_ex_filter" style="height: 400px"></textarea>
+addr:postcode=1234.?" data-conf="import_filter" id="data_ex_filter" style="height: 400px"></textarea>
               </div>
               <div class="col">
                 <h4 class="h5">Use itens from a file to select items from import dataset</h4>
@@ -699,6 +699,8 @@ phone
       },
       FromURIParameters: {},
       FromConfFileRAW: {},
+      ImportAliasGlobal: [], // Conf: import_alias.[type=global]
+      ImportKeysGlobal: [], // Conf: import_keys.[type=global]
       conf_init_file: "./init.sdm.yml",
       conf_init_extras: [
         "./example/hxlstandard-to-osm.sdm.yml",
@@ -1043,12 +1045,16 @@ phone
         const that = this
         if (that._promises.size === 0) {
           // console.log('Configuration().ready() already ready', that._promises)
+          that.update_import_alias()
+          that.update_import_keys()
           cb()
         } else {
           const handle = setInterval(() => {
             if (that._promises.size === 0) {
               // console.log('Configuration().ready() now', that._promises)
               clearInterval(handle);
+              that.update_import_alias()
+              that.update_import_keys()
               cb()
             } else {
               // console.log('Configuration().ready(), waiting...', that._promises)
@@ -1066,6 +1072,65 @@ phone
         } catch (error) {
           console.error(error);
           return {}
+        }
+      }
+
+      update_import_alias() {
+
+        console.log('updatupdate_import_aliase_import_keys run')
+        const el = document.querySelectorAll("[data-conf='import_aliases.global']")[0]
+        let alias_list = []
+        let alias_list_clean = new Set()
+        if (this.conf_raw && this.conf_raw.import_aliases && this.conf_raw.import_aliases.length > 0) {
+          console.log('... internal update_import_alias')
+          for (let index = 0; index < this.conf_raw.import_aliases.length; index++) {
+            const element = this.conf_raw.import_aliases[index]
+            if (element.type && element.type === 'global') {
+              element.aliases.forEach(alias_or_comment => {
+                alias_list.push(alias_or_comment)
+                if (!alias_or_comment.trim().startsWith("//")) {
+                  let pairs = alias_or_comment.trim().split("|")
+                  alias_list_clean.add(pairs)
+                }
+              })
+            }
+          }
+
+          if (alias_list.length > 0) {
+            el.value = alias_list.join("\n")
+          }
+          if (alias_list_clean.size > 0) {
+            SDMConf.ImportAliasGlobal = alias_list_clean
+          }
+        }
+      }
+
+      update_import_keys() {
+
+        console.log('update_import_keys run')
+        const el = document.querySelectorAll("[data-conf='import_keys.global']")[0]
+        let keys_list = []
+        let keys_list_clean = new Set()
+        if (this.conf_raw && this.conf_raw.import_keys && this.conf_raw.import_keys.length > 0) {
+          console.log('... internal update_import_keys')
+          for (let index = 0; index < this.conf_raw.import_keys.length; index++) {
+            const element = this.conf_raw.import_keys[index]
+            if (element.type && element.type === 'global') {
+              element.keys.forEach(key_or_comment => {
+                keys_list.push(key_or_comment)
+                if (!key_or_comment.trim().startsWith("//")) {
+                  keys_list_clean.add(key_or_comment.trim())
+                }
+              })
+            }
+          }
+
+          if (keys_list.length > 0) {
+            el.value = keys_list.join("\n")
+          }
+          if (keys_list_clean.size > 0) {
+            SDMConf.ImportKeysGlobal = keys_list_clean
+          }
         }
       }
     }
