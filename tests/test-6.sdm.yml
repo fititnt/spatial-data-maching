@@ -12,6 +12,5 @@ match_prompt: |
   //MSf//@did=1
   //MSf//@fid=1
   //MS+//wikidata
-  //MS-//wikidata
+  //MS//addr:housenumber|addr:street
   wikidata=.+
-  ?phone=\+55.*

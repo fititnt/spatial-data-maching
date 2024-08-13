@@ -329,8 +329,9 @@ phone
           </div> -->
 
             <div class="input-group">
-              <span class="input-group-text">Query filter</span>
-              <textarea class="form-control" aria-label="With textarea" rows="3" id="filter_active_simple"></textarea>
+              <span class="input-group-text">Match Prompt</span>
+              <textarea class="form-control" aria-label="With textarea" rows="3" data-conf="match_prompt"
+                id="filter_active_simple"></textarea>
             </div>
             <div class="input-group" id="extra_filter">
               <span class="input-group-text">Position</span>
@@ -711,6 +712,7 @@ phone
       ImportFilterGlobal: [], // Conf: import_filter
       ImportMatchStrategy: [], // Conf: match_strategy
       ImportKeysGlobal: [], // Conf: import_keys.[type=global]
+      _MatchPromptRaw: "", // Conf: import_keys.[type=global]
       conf_init_file: "./init.sdm.yml",
       conf_init_extras: [
         "./example/hxlstandard-to-osm.sdm.yml",
@@ -1055,6 +1057,7 @@ phone
         const that = this
         if (that._promises.size === 0) {
           // console.log('Configuration().ready() already ready', that._promises)
+          that.update_match_prompt()
           that.update_import_alias()
           that.update_import_filter()
           that.update_import_match_strategy()
@@ -1065,6 +1068,7 @@ phone
             if (that._promises.size === 0) {
               // console.log('Configuration().ready() now', that._promises)
               clearInterval(handle);
+              that.update_match_prompt()
               that.update_import_alias()
               that.update_import_filter()
               that.update_import_match_strategy()
@@ -1196,6 +1200,20 @@ phone
           if (keys_list_clean.size > 0) {
             SDMConf.ImportKeysGlobal = keys_list_clean
           }
+        }
+      }
+
+      update_match_prompt() {
+
+        // console.log('update_import_keys run')
+        const el = document.querySelectorAll("[data-conf='match_prompt']")[0]
+        // let match_prompt_text
+        // let keys_list = []
+        // let keys_list_clean = new Set()
+        if (this.conf_raw && this.conf_raw.match_prompt && this.conf_raw.match_prompt.length > 0) {
+          // console.log('... internal update_import_keys')
+          SDMConf._MatchPromptRaw = this.conf_raw.match_prompt
+          el.value = this.conf_raw.match_prompt
         }
       }
     }
@@ -2258,12 +2276,25 @@ phone
     }
 
 
-    _MatchPromptTests = {
-      a: `//MSf//@did=1
-//MSf//@fid=1
-//MS+//wikidata
-//MS-//wikidata
-wikidata=.+`
+    //     _MatchPromptTests = {
+    //       a: `//MSf//@did=1
+    // //MSf//@fid=1
+    // //MS+//wikidata
+    // //MS-//wikidata
+    // wikidata=.+`
+    //     }
+
+
+    class MatchMatrix {
+
+      constructor() {
+        sources = {
+
+        }
+      }
+      add_source(fid) {
+
+      }
     }
 
 
@@ -2290,10 +2321,8 @@ wikidata=.+`
         let result = this.preprocess_option(prompt_text)
         let result_object = this.process_option(prompt_text)
 
-
-        this._rules = result_object
-
-        console.log(this._rules)
+        this.rules = result_object
+        // console.log(this.rules)
 
         // # MSf - Match Strategy / focus (required: dataset, implicit assumes 1)
         // # MS+ - Match Strategy (+) strict match
@@ -2607,6 +2636,53 @@ wikidata=.+`
 
     // Matcher.
     class Matcher {
+
+      _keywords_dynamic = [
+        "MSf",
+        "MS+",
+        "MS~",
+        "MS", // Same as "MS~"
+        "MS-",
+      ]
+
+      constructor(conf, match_prompt, main_data, aux_data) {
+        this.conf = conf
+        this.match_prompt = match_prompt
+        this.main_data = main_data
+        this.aux_data = aux_data
+
+        console.log('Matcher', this.conf, this.match_prompt, this.main_data, this.aux_data)
+      }
+
+      is_dynamic_match() {
+        if (this.match_prompt.rules && Object.keys(this.match_prompt.rules)) {
+
+          console.log('...', this.match_prompt.rules, this._keywords_dynamic)
+          for (let index = 0; index < Object.keys(this.match_prompt.rules).length; index++) {
+            const element = Object.keys(this.match_prompt.rules)[index];
+            if (this._keywords_dynamic.indexOf(element) > -1) {
+              return true
+            }
+          }
+        }
+
+        return false
+      }
+
+
+      /**
+       * Option that uses Configuration and MatchPrompt classes
+       * Do more advanced checks than the static functions on this class
+       *
+       **/
+      compute() {
+        // NOTE: only call this after check is_dynamic_match().
+
+        const MM = new MatchMatrix()
+
+        // @TODO implement me
+        return true
+      }
 
       static filter(item, options_general, options_specific, inverse = false) {
         // console.log('filter', item, options_general, options_specific)
@@ -2938,6 +3014,7 @@ wikidata=.+`
         // return true
         return score
       }
+
 
       static match_tags(ref_props, item_props, rules, missing_ref = true, missing_target = true) {
         if (!rules || rules.length === 0) {
@@ -3746,6 +3823,9 @@ wikidata=.+`
         // }
         const _filter_parts = UI.update_filter_delayed_opt(UIb.filter_active_simple.value)
 
+
+        // console.log('update_filter_imediate__filter_parts', _filter_parts)
+
         // console.log('update_filter_imediate ___ -1', _filter_parts)
         // const _filter_parts = update_filter_delayed_opt(filter_active_simple.value)
 
@@ -3767,6 +3847,14 @@ wikidata=.+`
 
         // items_to_display = []
         SDMData.MainPreview = []
+
+        const mtch_prmpt = new MatchPrompt(UIb.filter_active_simple.value)
+        const mtch = new Matcher(SDMConf._, mtch_prmpt, SDMData.Main, SDMData.Auxiliary)
+
+        if (mtch.is_dynamic_match()) {
+          // console.warn("TODO dynamic data")
+          throw new Error("TODO dynamic data");
+        }
 
         // **** Data with coordinates ***
         for (let index = 0; index < SDMData.Main.length; index++) {
@@ -3804,7 +3892,7 @@ wikidata=.+`
         // items_to_display = []
         SDMData.AuxiliaryPreview = []
 
-        // **** Data with coordinates ***
+        // **** Data without coordinates ***
         for (let index = 0; index < SDMData.Auxiliary.length; index++) {
           const item = SDMData.Auxiliary[index];
 
@@ -3825,6 +3913,10 @@ wikidata=.+`
           if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
             continue
           }
+
+          // if (!mtch.filter_matched(item)) {
+          //   continue
+          // }
 
           _data_active_count += 1
 
@@ -4301,6 +4393,9 @@ wikidata=.+`
     document.getElementById("filter_active_latlon_dist").addEventListener('change', UI.update_ui_refpos)
     // https://stackoverflow.com/questions/41256026/clear-marker-layers-leaflet
 
+    // @TODO this is a bit agressive (call even on tab). Maybe do not call
+    // update_filter_delayed if the 
+    // content of the field filter_active_simple did not changed
     UIb.filter_active_simple.addEventListener('keyup', function (ev) {
       // console.log(ev)
       UI.update_filter_delayed()
