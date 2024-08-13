@@ -2287,10 +2287,16 @@ phone
 
     class MatchMatrix {
 
-      constructor() {
-        sources = {
+      focus_did = []
+      focus_fid = []
+      focus_fid_from_did = new Set()
 
-        }
+      constructor() {
+        this.focus_fid
+      }
+      add_focus_feature(feature) {
+        this.focus_fid.push(feature["__fid"])
+        this.focus_fid_from_did.add(feature["__did"])
       }
       add_source(fid) {
 
@@ -2304,7 +2310,13 @@ phone
     class MatchPrompt {
 
       keywords = [
-        "MSf",
+        // "MSf",
+        //"MSf",
+        "MSfid",
+        "MSdid",
+        "MSdid~",
+        "MSdid-",
+        "MSfid-",
         "MS+",
         "MS~",
         "MS", // Same as "MS~"
@@ -2525,7 +2537,8 @@ phone
 
       process_option(prompt_text) {
         let result_object = {}
-        let re_rules = /\/\/(?<RULE>.{2,3})\/\/(?<VALUE>.*)/
+        // let re_rules = /\/\/(?<RULE>.{2,3})\/\/(?<VALUE>.*)/
+        let re_rules = /\/\/(?<RULE>.{2,6})\/\/(?<VALUE>.*)/
         if (!prompt_text || prompt_text.trim().length === 0) {
           return null
         }
@@ -2638,12 +2651,30 @@ phone
     class Matcher {
 
       _keywords_dynamic = [
-        "MSf",
+        //"MSf",
+        "MSfid",
+        "MSdid",
+        "MSdid~",
+        "MSdid-",
+        "MSfid-",
         "MS+",
         "MS~",
         "MS", // Same as "MS~"
         "MS-",
       ]
+
+      // We default to first dataset, but no special feature
+      focus_did = [1] // MSfid
+      focus_fid = [] // MSdid
+      considered_did = ["*"] //MSdid~
+      ignored_did = [] // MSdid-
+      ignored_fid = [] // MSfid-
+
+      match_strict = [] // MS+
+      match_related = [] // MS, MS~
+      match_ignore = [] // MS-
+
+      matrix = new MatchMatrix()
 
       constructor(conf, match_prompt, main_data, aux_data) {
         this.conf = conf
@@ -2651,13 +2682,13 @@ phone
         this.main_data = main_data
         this.aux_data = aux_data
 
-        console.log('Matcher', this.conf, this.match_prompt, this.main_data, this.aux_data)
+        // console.log('Matcher', this.conf, this.match_prompt, this.main_data, this.aux_data)
       }
 
       is_dynamic_match() {
         if (this.match_prompt.rules && Object.keys(this.match_prompt.rules)) {
 
-          console.log('...', this.match_prompt.rules, this._keywords_dynamic)
+          // console.log('...', this.match_prompt.rules, this._keywords_dynamic)
           for (let index = 0; index < Object.keys(this.match_prompt.rules).length; index++) {
             const element = Object.keys(this.match_prompt.rules)[index];
             if (this._keywords_dynamic.indexOf(element) > -1) {
@@ -2678,10 +2709,89 @@ phone
       compute() {
         // NOTE: only call this after check is_dynamic_match().
 
-        const MM = new MatchMatrix()
+
+
+        // console.log('Matcher', this.conf, this.match_prompt, this.main_data, this.aux_data)
+        this.#compute_rules()
+
+        console.log('.....this', this)
+
+        this.#compute_matrix()
+
+        console.log('.....this after matrix', this)
 
         // @TODO implement me
         return true
+      }
+
+      #compute_rules() {
+        // this.focus_did = [1]
+        // this.focus_fid = []
+
+        // console.log('kkji', this.match_prompt.rules)
+
+        if (Object.hasOwn(this.match_prompt.rules, 'MSdid')) {
+          this.focus_did = this.match_prompt.rules["MSdid"][0].split(',').map(item => parseInt(item.trim()))
+        }
+        if (Object.hasOwn(this.match_prompt.rules, 'MSfid')) {
+          this.focus_fid = this.match_prompt.rules["MSfid"][0].split(',').map(item => parseInt(item.trim()))
+        }
+        if (Object.hasOwn(this.match_prompt.rules, 'MSdid~')) {
+          this.considered_did = this.match_prompt.rules["MSdid~"][0].split(',').map(item => parseInt(item.trim()))
+        }
+        if (Object.hasOwn(this.match_prompt.rules, 'MSdid-')) {
+          this.ignored_did = this.match_prompt.rules["MSdid-"][0].split(',').map(item => parseInt(item.trim()))
+        }
+        if (Object.hasOwn(this.match_prompt.rules, 'MSfid-')) {
+          this.ignored_fid = this.match_prompt.rules["MSfid-"][0].split(',').map(item => parseInt(item.trim()))
+        }
+        if (Object.hasOwn(this.match_prompt.rules, 'MS+')) {
+          this.match_strict = this.match_prompt.rules["MS+"][0].split(',').map(item => parseInt(item.trim()))
+        }
+
+        // Maybe rewrite MS in the preprocess stage to MS~?
+        if (Object.hasOwn(this.match_prompt.rules, 'MS')) {
+          this.match_related = this.match_prompt.rules["MS"][0].split(',').map(item => parseInt(item.trim()))
+        }
+        if (Object.hasOwn(this.match_prompt.rules, 'MS~')) {
+          this.match_related = this.match_prompt.rules["MS~"][0].split(',').map(item => parseInt(item.trim()))
+        }
+        if (Object.hasOwn(this.match_prompt.rules, 'MS-')) {
+          this.match_ignore = this.match_prompt.rules["MS-"][0].split(',').map(item => parseInt(item.trim()))
+        }
+      }
+
+      #compute_matrix() {
+
+        if (this.focus_fid.length > 0) {
+          for (let index = 0; index < this.main_data.length; index++) {
+            const element = this.main_data[index];
+            if (this.focus_fid.indexOf(element["__fid"]) > -1) {
+              this.matrix.add_focus_feature(element)
+            }
+          }
+          for (let index = 0; index < this.aux_data.length; index++) {
+            const element = this.aux_data[index];
+            if (this.focus_fid.indexOf(element["__fid"]) > -1) {
+              this.matrix.add_focus_feature(element)
+            }
+          }
+
+        } else if (this.focus_did.length > 0) {
+  
+          for (let index = 0; index < this.main_data.length; index++) {
+            const element = this.main_data[index];
+            if (this.focus_did.indexOf(element["__did"]) > -1) {
+              this.matrix.add_focus_feature(element)
+            }
+          }
+          for (let index = 0; index < this.aux_data.length; index++) {
+            const element = this.aux_data[index];
+            if (this.focus_did.indexOf(element["__did"]) > -1) {
+              this.matrix.add_focus_feature(element)
+            }
+          }
+        }
       }
 
       static filter(item, options_general, options_specific, inverse = false) {
@@ -3853,6 +3963,7 @@ phone
 
         if (mtch.is_dynamic_match()) {
           // console.warn("TODO dynamic data")
+          mtch.compute()
           throw new Error("TODO dynamic data");
         }
 

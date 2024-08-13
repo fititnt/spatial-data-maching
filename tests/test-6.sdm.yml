@@ -8,9 +8,22 @@
 # MS- - Match Strategy (-) not related instruction / please ignore / give less relevance
 # wikidata=.+ - (without?) A regex-like filter, before = is the key, after the = is either exact value or a regex
 # ?phone=\+55.* - (with ? before the key) - Same as above, however if item does not have key phone, tolerate it
+# match_prompt: |
+#   //MSf//@did=1
+#   //MSf//@fid=1
+#   //MS+//wikidata
+#   //MS//addr:housenumber|addr:street
+#   wikidata=.+
+
 match_prompt: |
-  //MSf//@did=1
-  //MSf//@fid=1
+  //MSdid//1
+  //MSfid//1
   //MS+//wikidata
   //MS//addr:housenumber|addr:street
   wikidata=.+
+
+# MSfid - MS (focus) feature id
+# MSdid - MS (focus) dataset id
+# MSdid~ - MS (~auxiliary) dataset id (if specified), all not yet focused dataset will be ignored
+# MSdid- - MS (- ignore) dataset id in special
+# MSfid- - MS (- ignore) feature id in special
