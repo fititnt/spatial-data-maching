@@ -2029,6 +2029,11 @@ phone
             const diff_read_all = Helper.humanDiff(_Etc._readfile_start_time, new Date())
             console.log(`readFile (all files + processing) end: took: ${diff_read_all}`)
 
+            // @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze
+            // @TODO in future, when sure all data is loaded, use the code bellow to freeze from changes
+            // Object.freeze(SDMData.Main)
+            // Object.freeze(SDMData.Auxiliary)
+
           } else {
             console.log('waiting input.files.length == files_loaded and last_count vs SDMData.Main.length stabilize', _totalfiles, files_csv_finished, files_loaded, last_count, SDMData.Main.length)
           }
@@ -2287,19 +2292,79 @@ phone
 
     class MatchMatrix {
 
-      focus_did = []
-      focus_fid = []
+      focus_did = new Set()
+      focus_fid = new Set()
       focus_fid_from_did = new Set()
 
+      matches_strict = {}
+      matches_related = {}
+
+      matches_strict_did = new Set()
+      matches_related_did = new Set()
+
       constructor() {
-        this.focus_fid
+        //this.focus_fid
       }
       add_focus_feature(feature) {
-        this.focus_fid.push(feature["__fid"])
+        this.focus_fid.add(feature["__fid"])
         this.focus_fid_from_did.add(feature["__did"])
       }
+
+      add_matched_strict(feature, candidate) {
+        if (!Object.hasOwn(this.matches_strict, feature["__fid"])) {
+          this.matches_strict[feature["__fid"]] = new Set()
+        }
+        this.matches_strict[feature["__fid"]].add(candidate["__fid"])
+        this.matches_strict_did.add(candidate["__did"])
+      }
+
+      add_matched_related(feature, candidate) {
+        if (!Object.hasOwn(this.matches_related, feature["__fid"])) {
+          this.matches_related[feature["__fid"]] = new Set()
+        }
+        this.matches_related[feature["__fid"]].add(candidate["__fid"])
+        this.matches_related_did.add(candidate["__did"])
+      }
+
       add_source(fid) {
 
+      }
+
+      display(){
+        let result = {}
+        // @TODO convert from start to a new Map()
+
+        for (const [item_fid, item_mstrict] of Object.entries(this.matches_strict)) {
+          if (!Object.hasOwn(result, item_fid)) {
+            result[item_fid] = {}
+          }
+          result[item_fid]['isRef'] = true
+          result[item_fid]['hasMS+'] = item_mstrict
+          for (const item_ms_fid of item_mstrict) {
+            if (!Object.hasOwn(result, item_ms_fid)) {
+              result[item_ms_fid] = {}
+            }
+            result[item_ms_fid]['isMS+'] = true
+            result[item_ms_fid]['isMS+of'] = item_mstrict
+          }
+        }
+        let result_map = new Map()
+        for (const [key, meta] of Object.entries(result)) {
+          result_map.set(parseInt(key), meta)
+        }
+
+        //return result
+        return result_map
+      }
+
+      statistics() {
+        const summary = {
+          tried: this.focus_fid.size,
+          matched_strict: Object.keys(this.matches_strict).length,
+          matches_related: Object.keys(this.matches_related).length,
+        }
+
+        return summary
       }
     }
 
@@ -2647,7 +2712,11 @@ phone
       }
     }
 
-    // Matcher.
+    /**
+     * *THE* class to store the main logic for the matching process.
+     * Check Matcher.match_tags() and read the comments for some caveats
+     * 
+     **/
     class Matcher {
 
       _keywords_dynamic = [
@@ -2714,11 +2783,11 @@ phone
         // console.log('Matcher', this.conf, this.match_prompt, this.main_data, this.aux_data)
         this.#compute_rules()
 
-        console.log('.....this', this)
+        // console.log('.....this', this)
 
         this.#compute_matrix()
 
-        console.log('.....this after matrix', this)
+        //console.log('.....this after matrix', this)
 
         // @TODO implement me
         return true
@@ -2746,22 +2815,40 @@ phone
           this.ignored_fid = this.match_prompt.rules["MSfid-"][0].split(',').map(item => parseInt(item.trim()))
         }
         if (Object.hasOwn(this.match_prompt.rules, 'MS+')) {
-          this.match_strict = this.match_prompt.rules["MS+"][0].split(',').map(item => parseInt(item.trim()))
+          this.match_strict = this.match_prompt.rules["MS+"].map(item => item.split('|'))
         }
 
         // Maybe rewrite MS in the preprocess stage to MS~?
         if (Object.hasOwn(this.match_prompt.rules, 'MS')) {
-          this.match_related = this.match_prompt.rules["MS"][0].split(',').map(item => parseInt(item.trim()))
+          this.match_related = this.match_prompt.rules["MS"].map(item => item.split('|'))
         }
         if (Object.hasOwn(this.match_prompt.rules, 'MS~')) {
-          this.match_related = this.match_prompt.rules["MS~"][0].split(',').map(item => parseInt(item.trim()))
+          this.match_related = this.match_prompt.rules["MS~"].map(item => item.split('|'))
         }
         if (Object.hasOwn(this.match_prompt.rules, 'MS-')) {
-          this.match_ignore = this.match_prompt.rules["MS-"][0].split(',').map(item => parseInt(item.trim()))
+          this.match_ignore = this.match_prompt.rules["MS-"].map(item => item.split('|'))
         }
       }
 
       #compute_matrix() {
+
+        // const all_data = [...this.main_data, this.aux_data]
+
+        // if (this.focus_fid.length > 0) {
+        //   for (let index = 0; index < all_data.length; index++) {
+        //     const element = all_data[index];
+        //     if (this.focus_fid.indexOf(element["__fid"]) > -1) {
+        //       this.matrix.add_focus_feature(element)
+        //     }
+        //   }
+        // } else if (this.focus_did.length > 0) {
+        //   for (let index = 0; index < all_data.length; index++) {
+        //     const element = all_data[index];
+        //     if (this.focus_did.indexOf(element["__did"]) > -1) {
+        //       this.matrix.add_focus_feature(element)
+        //     }
+        //   }
+        // }
 
         if (this.focus_fid.length > 0) {
           for (let index = 0; index < this.main_data.length; index++) {
@@ -2778,7 +2865,7 @@ phone
           }
 
         } else if (this.focus_did.length > 0) {
-  
+
           for (let index = 0; index < this.main_data.length; index++) {
             const element = this.main_data[index];
             if (this.focus_did.indexOf(element["__did"]) > -1) {
@@ -2792,6 +2879,71 @@ phone
             }
           }
         }
+
+        if (this.match_strict.length) {
+          this.#compute_matrix_item_strict_peers()
+        }
+        if (this.match_related.length) {
+          this.#compute_matrix_item_related_peers()
+        }
+      }
+
+      #compute_matrix_item_strict_peers() {
+
+        console.log('compute_matrix_item_strict_peers started')
+
+        // @TODO test also againsst AuxData (dataset without position)
+        for (const ref_feature of this.main_data) {
+          //console.log('1rs looṕ match')
+          if (this.matrix.focus_fid.has(ref_feature["__fid"])
+            || this.matrix.focus_did.has(ref_feature["__did"])) {
+            //console.log('1rs looṕ match2')
+            for (const test_feature of this.main_data) {
+              if (!this.ignored_fid.includes(test_feature["__fid"])
+                && !this.ignored_did.includes(test_feature["__did"])
+                && ref_feature["__did"] !== test_feature["__did"]) {
+                //console.log('1rs looṕ match3')
+                const score = Matcher.match_tags(
+                  ref_feature["properties"],
+                  //ref_feature["properties"],
+                  test_feature["properties"],
+                  this.match_strict,
+                  true,
+                  false
+                )
+                // console.log('1rs looṕ match3', score, ref_feature, test_feature, this.match_strict)
+                if (score > 51) {
+                  // console.error('!!!!!!!!!!51 match')
+                  this.matrix.add_matched_strict(ref_feature, test_feature)
+                }
+              }
+            }
+          }
+        }
+        // Matcher.match_tags({"a": 1}, {"a": 1}, ["a"], true, false)
+
+        // this.main_data.forEach(ref_feature => {
+
+        //   if (this.matrixref_feature["__fid"])
+
+        //     this.main_data.forEach(ref_feature => {
+
+
+        //     })
+
+        // })
+        // for (let index = 0; index < this.match_strict.length; index++) {
+        //     const element = this.match_strict[index]
+        //     for (let index2 = 0; index2 < element.length; index2++) {
+        //       const element2 = element[index2];
+        //       this.match_tags()
+        //     }
+        //   }
+
+      }
+
+      #compute_matrix_item_related_peers() {
+
       }
 
       static filter(item, options_general, options_specific, inverse = false) {
@@ -3126,6 +3278,17 @@ phone
       }
 
 
+      /**
+       * For a set of rules, match by tags two features.
+       * 
+       * @param   {object} ref_props       - Reference feature key-values of attributes
+       * @param   {object} item_props      - Tested feature key-values of attributes
+       * @param   {array}  rule_key        - List of keys to compare
+       * @param   {bool}   missing_ref     - Tolerate if key does not exist on reference?
+       * @param   {bool}   missing_target  - Tolerate if key does not exist on test match?
+       *
+       * @returns {Integer}
+       **/
       static match_tags(ref_props, item_props, rules, missing_ref = true, missing_target = true) {
         if (!rules || rules.length === 0) {
           // return true
@@ -3964,82 +4127,112 @@ phone
         if (mtch.is_dynamic_match()) {
           // console.warn("TODO dynamic data")
           mtch.compute()
-          throw new Error("TODO dynamic data");
-        }
+          const match_to_display = mtch.matrix.display()
 
-        // **** Data with coordinates ***
-        for (let index = 0; index < SDMData.Main.length; index++) {
-          const item = SDMData.Main[index];
+          console.log('match_to_display', match_to_display)
+          console.log('Match statistics', mtch.matrix.statistics(), mtch.matrix, match_to_display)
 
-          // Disabled files filter
-          if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
-            continue
-          }
+          //const display_fids = Object.keys(match_to_display)
+          for (let index = 0; index < SDMData.Main.length; index++) {
+            const item = SDMData.Main[index]
+            if (!match_to_display.has(item["__fid"])){
+              continue
+            }
 
-          // tagging filter
-          if (!Matcher.filter(item, parsed_general, parsed_specific)) {
-            continue
-          }
-          // // filter by distance
-          if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
-            continue
-          }
-          // // Use a reference dataset to filter elements from another dataset. CPU intensive
-          if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
-            continue
-          }
+            _data_active_count += 1
 
-          _data_active_count += 1
+            if (SDMData.MainPreview.length <= SDMConf.Preview.map) {
+              SDMData.MainPreview.push(item)
+            } else if (_Etc.focus_did === item["__did"] && SDMData.MainPreview.length <= (2 * SDMConf.Preview.map)) {
+              // If one dataset is focused, we allow up to 2 times the preview size
+              // this could help when have two very large datasets, so the smaller
+              // one does not keep being removed
+              SDMData.MainPreview.push(item)
+            }
 
-          if (SDMData.MainPreview.length <= SDMConf.Preview.map) {
-            SDMData.MainPreview.push(item)
-          } else if (_Etc.focus_did === item["__did"] && SDMData.MainPreview.length <= (2 * SDMConf.Preview.map)) {
-            // If one dataset is focused, we allow up to 2 times the preview size
-            // this could help when have two very large datasets, so the smaller
-            // one does not keep being removed
-            SDMData.MainPreview.push(item)
           }
-        }
-        // items_to_display = []
-        SDMData.AuxiliaryPreview = []
-
-        // **** Data without coordinates ***
-        for (let index = 0; index < SDMData.Auxiliary.length; index++) {
-          const item = SDMData.Auxiliary[index];
-
-          // Disabled files filter
-          if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
-            continue
-          }
-
-          // tagging filter
-          if (!Matcher.filter(item, parsed_general, parsed_specific)) {
-            continue
-          }
-          // // filter by distance
-          if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
-            continue
-          }
-          // // Use a reference dataset to filter elements from another dataset. CPU intensive
-          if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
-            continue
-          }
-
-          // if (!mtch.filter_matched(item)) {
-          //   continue
+          // for (const [item_fid, item_meta] of Object.entries(match_to_display)) {
+            
           // }
+          // throw new Error("TODO dynamic data");
+        } else {
 
-          _data_active_count += 1
+          // **** Data with coordinates ***
+          for (let index = 0; index < SDMData.Main.length; index++) {
+            const item = SDMData.Main[index];
 
-          if (SDMData.AuxiliaryPreview.length <= SDMConf.Preview.map) {
-            SDMData.AuxiliaryPreview.push(item)
-          } else if (_Etc.focus_did === item["__did"] && SDMData.AuxiliaryPreview.length <= (2 * SDMConf.Preview.map)) {
-            // If one dataset is focused, we allow up to 2 times the preview size
-            // this could help when have two very large datasets, so the smaller
-            // one does not keep being removed
-            SDMData.AuxiliaryPreview.push(item)
+            // Disabled files filter
+            if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
+              continue
+            }
+
+            // tagging filter
+            if (!Matcher.filter(item, parsed_general, parsed_specific)) {
+              continue
+            }
+            // // filter by distance
+            if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
+              continue
+            }
+            // // Use a reference dataset to filter elements from another dataset. CPU intensive
+            if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
+              continue
+            }
+
+            _data_active_count += 1
+
+            if (SDMData.MainPreview.length <= SDMConf.Preview.map) {
+              SDMData.MainPreview.push(item)
+            } else if (_Etc.focus_did === item["__did"] && SDMData.MainPreview.length <= (2 * SDMConf.Preview.map)) {
+              // If one dataset is focused, we allow up to 2 times the preview size
+              // this could help when have two very large datasets, so the smaller
+              // one does not keep being removed
+              SDMData.MainPreview.push(item)
+            }
           }
+          // items_to_display = []
+          SDMData.AuxiliaryPreview = []
+
+          // **** Data without coordinates ***
+          for (let index = 0; index < SDMData.Auxiliary.length; index++) {
+            const item = SDMData.Auxiliary[index];
+
+            // Disabled files filter
+            if (!Matcher.filter_in_dids(item, _Etc.enabled_files)) {
+              continue
+            }
+
+            // tagging filter
+            if (!Matcher.filter(item, parsed_general, parsed_specific)) {
+              continue
+            }
+            // // filter by distance
+            if (!(Matcher.filter_by_dist(item['geometry'], _Etc.refpoint_latlon, _Etc.refpoint_distance))) {
+              continue
+            }
+            // // Use a reference dataset to filter elements from another dataset. CPU intensive
+            if (!Matcher.filter_substract_file(item, _Etc.hide_did, _Etc.hide_did_dist, _Etc.hide_did_keys)) {
+              continue
+            }
+
+            // if (!mtch.filter_matched(item)) {
+            //   continue
+            // }
+
+            _data_active_count += 1
+
+            if (SDMData.AuxiliaryPreview.length <= SDMConf.Preview.map) {
+              SDMData.AuxiliaryPreview.push(item)
+            } else if (_Etc.focus_did === item["__did"] && SDMData.AuxiliaryPreview.length <= (2 * SDMConf.Preview.map)) {
+              // If one dataset is focused, we allow up to 2 times the preview size
+              // this could help when have two very large datasets, so the smaller
+              // one does not keep being removed
+              SDMData.AuxiliaryPreview.push(item)
+            }
+          }
+
         }
+
 
         // Data without coordinates
         // @TODO

@@ -1,0 +1,12 @@
+# http://git.workspace.localhost/fititnt/sdm-test-data/d/tmp/
+
+# These testfiles are from https://www.openstreetmap.org/user/fititnt/diary/404303
+# Uses localhost path to avoid make HTTP calls
+
+data:
+  - http://git.workspace.localhost/fititnt/sdm-test-data/d/tmp/1_overpass-firestation-already-phone.geojson
+  - http://git.workspace.localhost/fititnt/sdm-test-data/d/tmp/2_overpass-firestation-no-phone.geojson
+  - http://git.workspace.localhost/fititnt/sdm-test-data/d/tmp/3_osm-fm__CNEFE2022__RS_name-bombeiro.geojson
+  - http://git.workspace.localhost/fititnt/sdm-test-data/d/tmp/4_IEDERS__CBM_Bomeiros__Pelotoes_operacionais.geojson
+  - http://git.workspace.localhost/fititnt/sdm-test-data/d/tmp/5_IEDERS__CBM_Bomeiros__Regionais_batalhoes.geojson
+  - http://git.workspace.localhost/fititnt/sdm-test-data/d/tmp/43_RS.geojsonl

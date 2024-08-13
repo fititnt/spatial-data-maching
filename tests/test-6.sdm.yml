@@ -17,7 +17,6 @@
 
 match_prompt: |
   //MSdid//1
-  //MSfid//1
   //MS+//wikidata
   //MS//addr:housenumber|addr:street
   wikidata=.+
