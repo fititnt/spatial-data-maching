@@ -384,6 +384,7 @@ phone
               <h2>Export</h2>
               <div class="row">
                 <div class="col">
+                  <h3>Dataset</h3>
                   <h3>File format, content, and parts</h3>
                   <div class=" mb-3">
                     <label for="export_filename" class="form-label">Filename</label>
@@ -1148,27 +1149,22 @@ phone
       update_import_match_strategy() {
 
         // @TODO finish update_import_match_strategy()
-
-        console.log('update_import_match_strategy run')
+        // console.log('update_import_match_strategy run')
         const el = document.querySelectorAll("[data-conf='match_strategy']")[0]
         let ms_list = []
         let ms_list_clean = new Set()
-        if (this.conf_raw && this.conf_raw.import_filter && this.conf_raw.import_filter.length > 0) {
-          console.log('... internal update_import_match_strategy')
-          for (let index = 0; index < this.conf_raw.import_filter.length; index++) {
-            const element = this.conf_raw.import_filter[index]
-            console.log('el', element)
-            // ms_list.push(element)
-            // if (!element.trim().startsWith("//")) {
-            //   let pairs = element.trim().split("=")
-            //   ms_list_clean.add(pairs)
-            // }
+        if (this.conf_raw && this.conf_raw.match_strategy && this.conf_raw.match_strategy.length > 0) {
+          // console.log('... internal update_import_match_strategy')
+          for (let index = 0; index < this.conf_raw.match_strategy.length; index++) {
+            const element = this.conf_raw.match_strategy[index]
+            // console.log('el', element)
+            ms_list_clean.add(element)
+
           }
 
-          if (ms_list.length > 0) {
-            el.value = ms_list.join("\n")
-          }
           if (ms_list_clean.size > 0) {
+            const yaml_text = jsyaml.dump(this.conf_raw.match_strategy)
+            el.value = yaml_text
             SDMConf.ImportMatchStrategy = ms_list_clean
           }
         }
@@ -1440,8 +1436,8 @@ phone
         var _data_ex_count_i = 0
         // let _data_ex_count_t = 0
         var _data_ex_count_t = 0
-        let filter_options = MatchingPrompt.parse_options(UIb.data_ex_filter.value)
-        let fields_to_export = MatchingPrompt.parse_options_simple(UIb.data_ex_fields_exporter.value)
+        let filter_options = MatchPrompt.parse_options(UIb.data_ex_filter.value)
+        let fields_to_export = MatchPrompt.parse_options_simple(UIb.data_ex_fields_exporter.value)
         const import_fields_anyifosm_nwr = document.getElementById("import_fields_anyifosm_nwr").checked
         var examples = []
         // let files_loaded = 0
@@ -1664,8 +1660,8 @@ phone
                   _data_ex_count_i += 1
 
                   // tabular input more likely to need this
-                  row.data = MatchingPrompt._import_keys_renamer(row.data)
-                  row.data = MatchingPrompt._import_values_processor(row.data)
+                  row.data = MatchPrompt._import_keys_renamer(row.data)
+                  row.data = MatchPrompt._import_values_processor(row.data)
 
                   if (_papa_initialize === false) {
                     _papa_initialize = true
@@ -1859,12 +1855,17 @@ phone
           for (let index = 0; index < remote_files.length; index++) {
             const element = remote_files[index];
 
-            if (typeof element !== "string") {
+            // if (typeof element !== "string") {
+            if (typeof element !== "string" && !Object.hasOwn(element, 'url')) {
+              console.log(element)
               throw new Error("TODO implement complex list of data to load here");
               // @TODO deal with fallbacks
-
             }
+
             let _url = element
+            if (element.url) {
+              _url = element.url
+            }
 
             let pseudo_file = {
               // @see https://stackoverflow.com/questions/511761
@@ -2108,7 +2109,7 @@ phone
       static readFileReference(input) {
         const import_reffile_dist = parseInt(document.querySelector("#import_reffile_dist").value)
         const import_reffile_dist2 = parseInt(document.querySelector("#import_reffile_dist2").value)
-        const import_reffile_rules = MatchingPrompt.parse_options_simple(document.querySelector("#import_reffile_rules").value, false)
+        const import_reffile_rules = MatchPrompt.parse_options_simple(document.querySelector("#import_reffile_rules").value, false)
         const import_reffile_rules_missing = Boolean(document.querySelector("#import_reffile_rules_missing").checked)
         console.log(input, import_reffile_dist, import_reffile_rules)
 
@@ -2260,8 +2261,27 @@ phone
     /**
      * Low level parsing of instructions for data matching
      **/
-    class MatchingPrompt {
+    class MatchPrompt {
 
+      constructor(prompt_text){
+        let result = MatchPrompt.parse_options(prompt_text)
+        console.log(result)
+
+        // # MSf - Match Strategy / focus (required: dataset, implicit assumes 1)
+        // # MS+ - Match Strategy (+) strict match
+        // # MS~ - Match Strategy (~) related match 
+        // # MS- - Match Strategy (-) not related instruction / please ignore / give less relevance
+        // # wikidata=.+ - (without?) A regex-like filter, before = is the key, after the = is either exact value or a regex
+        // # ?phone=\+55.* - (with ? before the key) - Same as above, however if item does not have key phone, tolerate it
+        // match_prompt: |
+        //   //MSf//@did=1
+        //   //MSf//@fid=1
+        //   //MS+//wikidata
+        //   //MS-//wikidata
+        //   wikidata=.+
+        //   ?phone=\+55.*
+
+      }
 
       static _import_keys_renamer(item_object) {
 
@@ -2332,7 +2352,7 @@ phone
             let key = parts.shift()
             let regex_str = parts.join('=')
 
-            regex_str = MatchingPrompt._parse_options_even_more_regex(key, regex_str)
+            regex_str = MatchPrompt._parse_options_even_more_regex(key, regex_str)
             result[key] = new RegExp(regex_str, "i")
             // console.log(element)
           }
@@ -2406,7 +2426,7 @@ phone
               let key = parts.shift()
               let regex_str = parts.join('=')
 
-              regex_str = MatchingPrompt._parse_options_even_more_regex(key, regex_str)
+              regex_str = MatchPrompt._parse_options_even_more_regex(key, regex_str)
               // result[key] = new RegExp(regex_str, "i")
               result_group[`@did=${did}`][key] = new RegExp(regex_str, "i")
               // console.log(element)
@@ -3050,6 +3070,15 @@ phone
 
       }
 
+      static onEachFeatureMatchClick(ev, fid, did) {
+        ev.stopPropagation();
+        ev.preventDefault();
+        console.log("TODO: implement it", ev, fid, did)
+
+        document.getElementById("filter_active_latlon").value = `@fid=${fid}`
+
+      }
+
       static onEachFeatureJOSMClick(ev) {
         ev.stopPropagation();
         ev.preventDefault();
@@ -3067,10 +3096,14 @@ phone
         let title = ''
         let item_group = []
         let output = []
+        let fid = feature["__fid"]
+        let did = feature["__did"]
 
         // console.log('feature', feature)
 
         if (feature.properties) {
+
+
 
           // isso aqui deveria ser o popup
           if (feature.properties.name) {
@@ -3106,7 +3139,8 @@ phone
               _ed_josm_tags_1 = "&addtags=" + josm_params
             }
 
-            let _links = `<a href="https://osm.org/#map=${_zoom}/${_lat}/${_lon}" target="_blank">OSM</a>`
+            let _links = `<a href="#" target="_blank" onclick="UI.onEachFeatureMatchClick(event,${fid},${did})">Match!</a>`
+            _links = _links + ` | <a href="https://osm.org/#map=${_zoom}/${_lat}/${_lon}" target="_blank">OSM</a>`
             _links = _links + ` | <a href="https://osm.org/edit#map=${_zoom}/${_lat}/${_lon}&photo_overlay=streetside,mapillary,kartaview${_ed_id_extras}" target="_blank">iD</a>`
             // _links = _links + ` | <a href="http://localhost:8111/${_ed_josm_operation_1}?left=${_lon - 0.0005}&right=${_lon + 0.0005}&top=${_lat + 0.0005}&bottom=${_lat - 0.0005}${_ed_josm_extras}${_ed_josm_tags_1}" target="_blank" onclick=onEachFeatureJOSMClick(event)>JOSM<sup>z</sup></a>`
             _links = _links + ` | <a href="http://localhost:8111/load_and_zoom?left=${_lon - 0.005}&right=${_lon + 0.005}&top=${_lat + 0.005}&bottom=${_lat - 0.005}${_ed_josm_extras}" target="_blank" onclick="UI.onEachFeatureJOSMClick(event)">JOSM<sup>z</sup></a>`
@@ -3140,7 +3174,7 @@ phone
           //   // layer.bindPopup(output.join('\n\n'));
           //   layer.bindPopup(item_group.join('<br>'));
           // }
-          layer.bindPopup(item_group.join('<br>'));
+          layer.bindPopup(item_group.join('<br>'), { maxWidth: 500 });
         }
 
         // // does this feature have a property named popupContent?
@@ -3585,13 +3619,13 @@ phone
         let parsed_general = null
         let parsed_specific = null
         if (text.indexOf('=') === -1) {
-          parsed_general = MatchingPrompt.parse_options_simple(text)
+          parsed_general = MatchPrompt.parse_options_simple(text)
           // console.log('update_filter_delayed_opt simple', text, parsed)
         } else {
-          parsed_general = MatchingPrompt.parse_options(text)
+          parsed_general = MatchPrompt.parse_options(text)
           // console.log('update_filter_delayed_opt full', text, parsed)
         }
-        parsed_specific = MatchingPrompt.parse_options_specific(text)
+        parsed_specific = MatchPrompt.parse_options_specific(text)
         return [parsed_general, parsed_specific]
       }
 

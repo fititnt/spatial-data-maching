@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://sdm.etica.ai/v/0.6.0b1/sdm.schema.json
+# --yaml-language-server: $schema=http://git.workspace.localhost/fititnt/spatial-data-maching/public/sdm.schema.json
+
+
+# MSf - Match Strategy / focus (required: dataset, implicit assumes 1)
+# MS+ - Match Strategy (+) strict match
+# MS~ - Match Strategy (~) related match 
+# MS- - Match Strategy (-) not related instruction / please ignore / give less relevance
+# wikidata=.+ - (without?) A regex-like filter, before = is the key, after the = is either exact value or a regex
+# ?phone=\+55.* - (with ? before the key) - Same as above, however if item does not have key phone, tolerate it
+match_prompt: |
+  //MSf//@did=1
+  //MSf//@fid=1
+  //MS+//wikidata
+  //MS-//wikidata
+  wikidata=.+
+  ?phone=\+55.*

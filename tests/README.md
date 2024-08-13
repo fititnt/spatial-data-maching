@@ -15,6 +15,8 @@ http://git.workspace.localhost/fititnt/spatial-data-maching/public/?conf[]=https
 
 @TODO 1. make conf files without data and at same time load the data by URL parameters
 @TODO 2. make conf files with one dataset and at same time load other datasets data by URL parameters, as if the first dataset could be considered a default value for target conflation (if not specified other value)
+@TODO 3. Maybe also implement on-demand preview of Wikidata Q items with another data schema
+         https://www.wikidata.org/wiki/Special:EntityData/Q10298542.jsonld
 
 -->
 
@@ -31,3 +33,13 @@ http://git.workspace.localhost/fititnt/spatial-data-maching/public/?conf[]=https
   - Currently it is considering only the lastest data
   - Maybe merge the datafiles? Or make it configurable?
 - https://sdm.etica.ai/v/0.6.0b2/?data[]=https://sdmtestdata.etica.ai/d/countries.001.osm.geojson&data[]=https://sdmtestdata.etica.ai/d/countries.001.wikidata.tsv&data[]=https://sdmtestdata.etica.ai/d/countries-territories-unocha.001.hxl.csv
+
+
+
+<!--
+
+- http://git.workspace.localhost/fititnt/spatial-data-maching/public/?conf[]=https://raw.githubusercontent.com/fititnt/spatial-data-maching/main/tests/test-2.sdm.yml
+
+
+
+-->

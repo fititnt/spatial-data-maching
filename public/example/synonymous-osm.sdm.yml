@@ -1,0 +1,18 @@
+# @see https://wiki.openstreetmap.org/wiki/Synonymous_tags
+
+# @TODO this is a draft file. Logic not implemented yet (as v0.6.0.b2)
+
+# Contact information Synonymous tags are _more important_
+# because may be used to enhance data matching
+synonymous:
+  - id: "osmwiki:Synonymous_tags"
+    keys:
+      - [contact:email, email]
+      - [contact:fax, fax]
+      - [contact:phone, phone]
+      - [contact:website, website]
+      - [contact:facebook, facebook]
+      - [contact:instagram, instagram]
+      - [contact:mobile, mobile]
+      - [contact:telegram, telegram]
+      - [contact:twitter, twitter]
