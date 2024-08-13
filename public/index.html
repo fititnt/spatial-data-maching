@@ -2258,14 +2258,42 @@ phone
     }
 
 
+    _MatchPromptTests = {
+      a: `//MSf//@did=1
+//MSf//@fid=1
+//MS+//wikidata
+//MS-//wikidata
+wikidata=.+`
+    }
+
+
     /**
      * Low level parsing of instructions for data matching
      **/
     class MatchPrompt {
 
-      constructor(prompt_text){
-        let result = MatchPrompt.parse_options(prompt_text)
-        console.log(result)
+      keywords = [
+        "MSf",
+        "MS+",
+        "MS~",
+        "MS", // Same as "MS~"
+        "MS-",
+        "FF", // Filter, focused in a dataset
+        "FF?", // Filter, focused in a dataset (optional)
+        "FA", // Filter, active
+        "FA?", // Filter, active (?optional)
+      ]
+
+      distance_key = "@distance"
+
+      constructor(prompt_text) {
+        let result = this.preprocess_option(prompt_text)
+        let result_object = this.process_option(prompt_text)
+
+
+        this._rules = result_object
+
+        console.log(this._rules)
 
         // # MSf - Match Strategy / focus (required: dataset, implicit assumes 1)
         // # MS+ - Match Strategy (+) strict match
@@ -2282,6 +2310,7 @@ phone
         //   ?phone=\+55.*
 
       }
+
 
       static _import_keys_renamer(item_object) {
 
@@ -2440,6 +2469,72 @@ phone
         }
 
         return result_group
+      }
+
+      preprocess_option(prompt_text) {
+        let result = []
+        if (!prompt_text || prompt_text.trim().length === 0) {
+          return null
+        }
+        prompt_text.split('\n').forEach(element => {
+          element = element.trim()
+          if (element.length > 0) {
+            if (element.indexOf('//') === -1) {
+              if (element.indexOf('?') === 0) {
+                result.push("//FA?//" + element.slice(0, 1) + str.slice(2))
+              } else {
+                result.push("//FA//" + element)
+              }
+            } else {
+              result.push(element)
+            }
+          }
+        });
+
+        return result.join("\n")
+      }
+
+      process_option(prompt_text) {
+        let result_object = {}
+        let re_rules = /\/\/(?<RULE>.{2,3})\/\/(?<VALUE>.*)/
+        if (!prompt_text || prompt_text.trim().length === 0) {
+          return null
+        }
+        prompt_text.split('\n').forEach(element => {
+          element = element.trim()
+
+          let parts = re_rules.exec(element)
+
+          if (parts) {
+            if (parts.groups && this.keywords.indexOf(parts.groups.RULE) > -1) {
+              if (!Object.hasOwn(result_object, parts.groups.RULE)) {
+                result_object[parts.groups.RULE] = []
+              }
+              result_object[parts.groups.RULE].push(parts.groups.VALUE)
+            } else {
+              console.warn("prompt_text unknow keyword (or mere comment)", prompt_text, element)
+            }
+          }
+
+
+          // console.log(parts)
+          // console.log(parts.groups)
+
+
+          // if (element.length > 0) {
+          //   if (element.indexOf('//') === -1) {
+          //     if (element.indexOf('?') === 0) {
+          //       result.push("//FA?//" + element.slice(0, 1) + str.slice(2))
+          //     } else {
+          //       result.push("//FA//" + element)
+          //     }
+          //   } else {
+          //     result.push(element)
+          //   }
+          // }
+        });
+
+        return result_object
       }
 
       /**
