@@ -687,7 +687,8 @@ phone
       },
       _SourceFilesAll: new Set(),
       _SourceFilesStarted: new Set(),
-      _SourceFilesFinished: new Set()
+      _SourceFilesFinished: new Set(),
+      _RealTimeFilterHash: null
     }
 
     /**
@@ -1433,6 +1434,23 @@ phone
 
           return prev;
         }, {});
+      }
+
+      /**
+      * Returns a hash code from a string
+      * 
+      * @param  {String} str The string to hash.
+      * @return {Number}    A 32bit integer
+      * @author https://stackoverflow.com/questions/6122571
+      **/
+      static hashCode(str) {
+        let hash = 0;
+        for (let i = 0, len = str.length; i < len; i++) {
+          let chr = str.charCodeAt(i);
+          hash = (hash << 5) - hash + chr;
+          hash |= 0; // Convert to 32bit integer
+        }
+        return hash;
       }
 
     }
@@ -2330,7 +2348,7 @@ phone
 
       }
 
-      display(){
+      display() {
         let result = {}
         // @TODO convert from start to a new Map()
 
@@ -2374,6 +2392,9 @@ phone
      **/
     class MatchPrompt {
 
+      rules = null
+      rules_hash = 0
+
       keywords = [
         // "MSf",
         //"MSf",
@@ -2399,7 +2420,8 @@ phone
         let result_object = this.process_option(prompt_text)
 
         this.rules = result_object
-        // console.log(this.rules)
+        this.rules_hash = Helper.hashCode(JSON.stringify(this.rules))
+        //console.log('MatchPrompt rules', this.rules, this.rules_hash)
 
         // # MSf - Match Strategy / focus (required: dataset, implicit assumes 1)
         // # MS+ - Match Strategy (+) strict match
@@ -4054,10 +4076,23 @@ phone
 
       }
 
-      static update_filter_delayed() {
+      static update_filter_delayed(force_reload = false) {
         _Etc.debounceAttemptedCount += 1
         // console.log('update_filter_delayed', debounceAttemptedCount, (new Date()))
-        Helper.debounce(UI.update_filter_imediate, 100)
+
+        //const MP = MatchPrompt(document.getElementById("filter_active_simple").value).rules_hash
+        const p1 = (new MatchPrompt(document.getElementById("filter_active_simple").value)).rules_hash
+        const p2 = document.getElementById("filter_active_latlon").value.trim()
+        const p3 = document.getElementById("filter_active_latlon_dist").value.trim()
+        const hash_combo = Helper.hashCode(p1 + p2 + p3)
+        // console.log('p1, p2, p3, hash_combo', p1, p2, p3, hash_combo)
+
+        if (SDMData._RealTimeFilterHash !== hash_combo || force_reload) {
+          SDMData._RealTimeFilterHash = hash_combo
+          Helper.debounce(UI.update_filter_imediate, 250)
+        } else {
+          console.log('update_filter_delayed already done recently. Hash:', hash_combo)
+        }
       }
 
       static update_filter_delayed_opt(text) {
@@ -4135,7 +4170,7 @@ phone
           //const display_fids = Object.keys(match_to_display)
           for (let index = 0; index < SDMData.Main.length; index++) {
             const item = SDMData.Main[index]
-            if (!match_to_display.has(item["__fid"])){
+            if (!match_to_display.has(item["__fid"])) {
               continue
             }
 
@@ -4152,7 +4187,7 @@ phone
 
           }
           // for (const [item_fid, item_meta] of Object.entries(match_to_display)) {
-            
+
           // }
           // throw new Error("TODO dynamic data");
         } else {
