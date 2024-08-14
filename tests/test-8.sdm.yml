@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://sdm.etica.ai/v/0.6.0b1/sdm.schema.json
+# --yaml-language-server: $schema=http://git.workspace.localhost/fititnt/spatial-data-maching/public/sdm.schema.json
+# http://git.workspace.localhost/fititnt/spatial-data-maching/tests/test-7.sdm.yml
+data:
+  - https://sdmtestdata.etica.ai/d/hospital.076.osm.geojson
+  - https://sdmtestdata.etica.ai/d/hospital.001.wikidata.tsv
+  - http://git.workspace.localhost/fititnt/sdm-test-data/d/tmp/BR-RS__datasus_sem-filtro__2024-04.datasus.geojson
+
+match_prompt: |
+  //MSfid//290
+  //MSdid//1
+  //MS+//wikidata
+
+# ref:CNES=2237601
+# match_prompt: |
+#   //MSfid//1
+#   //MSdid//1
+#   //MS+//wikidata
+#   //MS+//ref:CNES
+
+# match_prompt: |
+#   //MSfid//1
+#   //MSdid//1
+#   //MS+//wikidata
+#   //MS//addr:housenumber|addr:street
+
+# //MSfid//290
+# //MS+//wikidata

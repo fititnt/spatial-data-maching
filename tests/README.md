@@ -42,4 +42,6 @@ http://git.workspace.localhost/fititnt/spatial-data-maching/public/?conf[]=https
 
 - http://git.workspace.localhost/fititnt/spatial-data-maching/public/?conf[]=https://raw.githubusercontent.com/fititnt/spatial-data-maching/main/tests/test-2.sdm.yml&conf[]=https://raw.githubusercontent.com/fititnt/spatial-data-maching/main/tests/test-6.sdm.yml
 
+
+- http://git.workspace.localhost/fititnt/spatial-data-maching/public/?conf[]=http://git.workspace.localhost/fititnt/spatial-data-maching/tests/test-8.sdm.yml
 -->

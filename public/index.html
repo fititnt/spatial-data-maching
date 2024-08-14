@@ -332,6 +332,11 @@ phone
               <span class="input-group-text">Match Prompt</span>
               <textarea class="form-control" aria-label="With textarea" rows="3" data-conf="match_prompt"
                 id="filter_active_simple"></textarea>
+                <span class="input-group-text">
+                    <input class="form-check-input" type="checkbox" value="" id="autocalc" checked>
+                    <hr>
+                  <button type="button" class="btn btn-primary" id="force_calc"onclick="UI.update_filter_delayed(true)">&#x21bb;</button>
+                </span>
             </div>
             <div class="input-group" id="extra_filter">
               <span class="input-group-text">Position</span>
@@ -2017,7 +2022,6 @@ phone
             }
             // output.textContent = output_printer(SDMData.Main)
 
-
             SDMData.MainPreview = SDMData.Main.slice(0, SDMConf.Preview.map)
             //console.log('....SDMData.MainPreview', SDMData.Main, SDMData.MainPreview, SDMConf.Preview.map)
             // console.log('WorkingInputFiles', WorkingInputFiles)
@@ -2902,15 +2906,21 @@ phone
           }
         }
 
-        if (this.match_strict.length) {
-          this.#compute_matrix_item_strict_peers()
+        if (this.match_strict.length || this.match_related.length) {
+          this.#compute_matrix_item_matches()
+          // this.#compute_matrix_item_strict_peers()
+
         }
-        if (this.match_related.length) {
-          this.#compute_matrix_item_related_peers()
-        }
+        // if (this.match_strict.length) {
+        //   this.#compute_matrix_item_strict_peers()
+        // }
+        // if (this.match_related.length) {
+        //   this.#compute_matrix_item_related_peers()
+        // }
       }
 
-      #compute_matrix_item_strict_peers() {
+      // #compute_matrix_item_strict_peers() {
+      #compute_matrix_item_matches() {
 
         console.log('compute_matrix_item_strict_peers started')
 
@@ -2925,19 +2935,35 @@ phone
                 && !this.ignored_did.includes(test_feature["__did"])
                 && ref_feature["__did"] !== test_feature["__did"]) {
                 //console.log('1rs looṕ match3')
-                const score = Matcher.match_tags(
-                  ref_feature["properties"],
-                  //ref_feature["properties"],
-                  test_feature["properties"],
-                  this.match_strict,
-                  true,
-                  false
-                )
-                // console.log('1rs looṕ match3', score, ref_feature, test_feature, this.match_strict)
-                if (score > 51) {
-                  // console.error('!!!!!!!!!!51 match')
-                  this.matrix.add_matched_strict(ref_feature, test_feature)
+
+                if (this.match_strict.length) {
+                  const score = Matcher.match_tags(
+                    ref_feature["properties"],
+                    //ref_feature["properties"],
+                    test_feature["properties"],
+                    this.match_strict,
+                    true,
+                    false
+                  )
+                  // console.log('1rs looṕ match3', score, ref_feature, test_feature, this.match_strict)
+                  if (score > 51) {
+                    this.matrix.add_matched_strict(ref_feature, test_feature)
+                  }
                 }
+                if (this.match_related.length) {
+                  const score = Matcher.match_tags(
+                    ref_feature["properties"],
+                    //ref_feature["properties"],
+                    test_feature["properties"],
+                    this.match_related,
+                    true,
+                    false
+                  )
+                  if (score > 51) {
+                    this.matrix.add_matched_related(ref_feature, test_feature)
+                  }
+                }
+
               }
             }
           }
@@ -3650,10 +3676,17 @@ phone
         // }
       }
 
-      static output_printer(collection, _param1, _param2) {
+      // static output_printer(collection, _param1, _param2, summary = null) {
+      static output_printer(collection, summary = null) {
         // let _maximum_displayed = 1000
         let _maximum_displayed = SDMConf.Preview.text
         let output = []
+
+        if (summary) {
+          output.push(`// ${JSON.stringify(summary)}`)
+        }
+
+
         collection.forEach(function (item) {
           // console.log('output_printer', item)
           let __did = item['__did']
@@ -4076,6 +4109,13 @@ phone
 
       }
 
+      /**
+       * With force_reload, it will always run.
+       * Without, necessary:
+       * 1. The calculation changed since last run
+       * 2. The checkbox autocalc be checked (default)
+       *
+       **/
       static update_filter_delayed(force_reload = false) {
         _Etc.debounceAttemptedCount += 1
         // console.log('update_filter_delayed', debounceAttemptedCount, (new Date()))
@@ -4085,11 +4125,16 @@ phone
         const p2 = document.getElementById("filter_active_latlon").value.trim()
         const p3 = document.getElementById("filter_active_latlon_dist").value.trim()
         const hash_combo = Helper.hashCode(p1 + p2 + p3)
+        const is_autocalc = document.getElementById("autocalc").checked
+
         // console.log('p1, p2, p3, hash_combo', p1, p2, p3, hash_combo)
 
-        if (SDMData._RealTimeFilterHash !== hash_combo || force_reload) {
+        if ((is_autocalc && SDMData._RealTimeFilterHash !== hash_combo) || force_reload) {
           SDMData._RealTimeFilterHash = hash_combo
-          Helper.debounce(UI.update_filter_imediate, 250)
+          Helper.debounce(function() {
+            UI.update_filter_imediate()
+            // SDMData._RealTimeFilterHash = hash_combo
+          }, 100)
         } else {
           console.log('update_filter_delayed already done recently. Hash:', hash_combo)
         }
@@ -4159,10 +4204,14 @@ phone
         const mtch_prmpt = new MatchPrompt(UIb.filter_active_simple.value)
         const mtch = new Matcher(SDMConf._, mtch_prmpt, SDMData.Main, SDMData.Auxiliary)
 
+        let output_print_summary = null
+
         if (mtch.is_dynamic_match()) {
           // console.warn("TODO dynamic data")
           mtch.compute()
           const match_to_display = mtch.matrix.display()
+
+          output_print_summary = mtch.matrix.statistics()
 
           console.log('match_to_display', match_to_display)
           console.log('Match statistics', mtch.matrix.statistics(), mtch.matrix, match_to_display)
@@ -4294,7 +4343,7 @@ phone
         }
 
         if (document.getElementById('ui_text_preview').checked) {
-          UIb.output.value = UI.output_printer(SDMData.MainPreview)
+          UIb.output.value = UI.output_printer(SDMData.MainPreview, output_print_summary)
         }
 
         if (document.getElementById('ui_text_nopos_preview').checked) {
