@@ -702,6 +702,7 @@ phone
     let SDMConf = {
       _: null, // instance of Configuration
       // _: new Configuration(), // instance of Configuration
+
       Preview: {
         text: 10000,  // maximum_active_display
         map: 10000  // maximum_active_display_map
@@ -723,7 +724,9 @@ phone
       conf_init_extras: [
         "./example/hxlstandard-to-osm.sdm.yml",
         "./example/wikidata-to-osm.sdm.yml",
-      ]
+      ],
+      _debug: true,
+      _verbosity: 2,
     }
 
     let SDMOption = {
@@ -2776,6 +2779,7 @@ phone
         this.match_prompt = match_prompt
         this.main_data = main_data
         this.aux_data = aux_data
+        this.items_tested = 0
 
         // console.log('Matcher', this.conf, this.match_prompt, this.main_data, this.aux_data)
       }
@@ -2804,10 +2808,14 @@ phone
       compute() {
         // NOTE: only call this after check is_dynamic_match().
 
-
+        const t1 = new Date()
+        this.items_tested = 0
 
         // console.log('Matcher', this.conf, this.match_prompt, this.main_data, this.aux_data)
         this.#compute_rules()
+
+
+        this.compute_worst_case()
 
         // console.log('.....this', this)
 
@@ -2815,8 +2823,18 @@ phone
 
         //console.log('.....this after matrix', this)
 
+        if (SDMConf._debug === true && SDMConf._verbosity > 1) {
+          const t2 = new Date()
+          const diff = Helper.humanDiff(t1, t2)
+          console.log(`Matcher.compute [x${this.items_tested}] took: ${diff}`)
+        }
+
         // @TODO implement me
         return true
+      }
+
+      compute_worst_case() {
+        // @TODO
       }
 
       #compute_rules() {
@@ -2922,7 +2940,7 @@ phone
       // #compute_matrix_item_strict_peers() {
       #compute_matrix_item_matches() {
 
-        console.log('compute_matrix_item_strict_peers started')
+        console.log('compute_matrix_item_matches started')
 
         // @TODO test also againsst AuxData (dataset without position)
         for (const ref_feature of this.main_data) {
@@ -2936,7 +2954,13 @@ phone
                 && ref_feature["__did"] !== test_feature["__did"]) {
                 //console.log('1rs looṕ match3')
 
+                
+
+                this.items_tested += 1
+
                 if (this.match_strict.length) {
+                  // ref:CNES=2237601
+
                   const score = Matcher.match_tags(
                     ref_feature["properties"],
                     //ref_feature["properties"],
@@ -2945,8 +2969,22 @@ phone
                     true,
                     false
                   )
+                  // if (ref_feature["properties"]["ref:CNES"] === "2237601" ) {
+                  // if (ref_feature["properties"]["ref:CNES"] === "2237601" && test_feature["__did"] === 3 && test_feature["properties"]["ref:CNES"]) {
+                  //   console.log("ref_feature", ref_feature, test_feature)
+                  // }
+                  // if (test_feature["properties"]["ref:CNES"] === "2237601" ) {
+                  //   console.log("test_feature", test_feature)
+                  // }
+
+                  // if (ref_feature["properties"]["ref:CNES"] === "2237601" && test_feature["properties"]["ref:CNES"] === "2237601") {
+                  //   console.log(">>>>> THTTTTTT", ref_feature, test_feature, score)
+                  // }
                   // console.log('1rs looṕ match3', score, ref_feature, test_feature, this.match_strict)
                   if (score > 51) {
+
+                    // console.log(this.match_strict, this.match_related)
+                    // throw new Error("test");
                     this.matrix.add_matched_strict(ref_feature, test_feature)
                   }
                 }
@@ -3026,12 +3064,13 @@ phone
           if (!item_props.hasOwnProperty(key) && options[key] !== '') {
             return false
           }
+
           // let _regex = ''
           let value_str = item_props[key]
           if (typeof value_str !== 'sring') {
             value_str = value_str.toString()
           }
-          // if 
+
           // console.log(item[key])
           if (!value_str.match(regex)) {
             // Maybe tolerage optional matches
@@ -3362,7 +3401,8 @@ phone
           }
           // @TODO implement some normalization for names, addr:postcode, etc
           // levenshtein.js https://gist.github.com/andrei-m/982927
-          if (ref_props[rule_key] === item_props[rule_key]) {
+          // if (ref_props[rule_key] === item_props[rule_key]) {
+          if ("" + ref_props[rule_key] === "" + item_props[rule_key]) {
             success += 1
           }
         }
@@ -4136,7 +4176,7 @@ phone
             // SDMData._RealTimeFilterHash = hash_combo
           }, 100)
         } else {
-          console.log('update_filter_delayed already done recently. Hash:', hash_combo)
+          // console.log('update_filter_delayed already done recently. Hash:', hash_combo)
         }
       }
 

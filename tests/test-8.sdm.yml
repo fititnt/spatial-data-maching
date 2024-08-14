@@ -6,11 +6,22 @@ data:
   - https://sdmtestdata.etica.ai/d/hospital.001.wikidata.tsv
   - http://git.workspace.localhost/fititnt/sdm-test-data/d/tmp/BR-RS__datasus_sem-filtro__2024-04.datasus.geojson
 
+# match_prompt: |
+#   //MSfid//290
+#   //MSdid//1
+#   //MS+//wikidata
+
 match_prompt: |
   //MSfid//290
-  //MSdid//1
-  //MS+//wikidata
+  //MS+//ref:CNES
 
+## DEMO (filtro simples=ref:CNES=2237806 ou )
+# @id=node/2274207744
+# wikidata=Q10298510
+# ref:CNES=2237156
+
+# //MSfid//42236
+#
 # ref:CNES=2237601
 # match_prompt: |
 #   //MSfid//1
@@ -26,3 +37,7 @@ match_prompt: |
 
 # //MSfid//290
 # //MS+//wikidata
+# //MS+//ref:CNES
+
+# //MSfid//290
+# //MS+//ref:CNES
